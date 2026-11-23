@@ -40,7 +40,7 @@ export {
   base32HexBytes,
   base16Bytes,
 } from "./entries.js";
-export { object, discriminatedUnion, enumOf, of, lazySchema, type Shape } from "./schema.js";
+export { object, discriminatedUnion, bestFit, enumOf, of, lazySchema, type Shape } from "./schema.js";
 export {
   minProperties,
   maxProperties,

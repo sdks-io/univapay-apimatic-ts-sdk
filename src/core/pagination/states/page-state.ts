@@ -19,8 +19,9 @@ export function pageState<TPage>(config: PageStateConfig<TPage>): PageNumberStat
       if (totalPages != null && current >= totalPages) return null;
       const hasMore = config.hasMore?.(response, headers);
       if (hasMore != null) return hasMore ? pageState({ ...config, page: current + 1 }) : null;
+      if (totalPages != null) return pageState({ ...config, page: current + 1 });
       if (itemCount === 0) return null;
-      if (totalPages == null && config.limit != null && itemCount < config.limit) return null;
+      if (config.limit != null && itemCount < config.limit) return null;
       return pageState({ ...config, page: current + 1 });
     },
   };

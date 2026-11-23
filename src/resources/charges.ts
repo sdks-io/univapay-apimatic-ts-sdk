@@ -62,7 +62,7 @@ export class Charges {
    * に設定されていたもの）をキャプチャして売上を確定させます。キャプチャ金額はオーソリ金額以下である必要があり、通貨も一致する必要があります。リクエストボディ（およびその両方のフィールド）は任意です。完全に省略した場合、オーソリ済みの未決済全額（元のリクエスト通貨で）がキャプチャされます。部分キャプチャ（オーソリ金額より少ない金額のキャプチャ）は、有効化されている場合にのみ利用できます。有効化されていない場合、リクエストは
    * `amount` フィールドに対する `PARTIAL_CAPTURE_NOT_ALLOWED` で拒否されます。銀行振込の課金では常に利用できます。
    *
-   * @returns キャプチャに成功しました。空の JSON オブジェクトを返します。
+   * @returns キャプチャに成功しました。レスポンスボディはありません（HTTP 200、本文なし）。
    *
    * @throws {@link Charges.CaptureChargeError} when the API answers with an error status — narrow
    * on `err.payload.kind`
@@ -74,7 +74,7 @@ export class Charges {
   captureCharge(
     request: Charges.CaptureChargeRequest,
     options?: RequestOptions,
-  ): ApiPromise<Record<string, unknown>, Charges.CaptureChargeError> {
+  ): ApiPromise<undefined, Charges.CaptureChargeError> {
     return this.#rawClient.execute(
       {
         method: "POST",
@@ -93,7 +93,7 @@ export class Charges {
         },
       },
       {
-        success: { kind: "json", schema: s.record(s.string(), s.unknown()) },
+        success: { kind: "empty" },
         errorFactory: Charges.CaptureChargeError,
       },
       options,

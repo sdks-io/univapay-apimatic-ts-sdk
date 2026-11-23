@@ -1,7 +1,7 @@
 export { UnivapayPublicApiClient } from "./client.js";
 export type { ClientOptions } from "./client-options.js";
 
-export type { TokenProvider } from "./core/auth/credentials.js";
+export type { SecretProvider } from "./core/auth/credentials.js";
 
 export { Charges } from "./resources/charges.js";
 export { TransactionTokens } from "./resources/transaction-tokens.js";
@@ -798,6 +798,16 @@ export { WebhookTrigger, webhookTriggerSchema } from "./models/webhook-trigger.j
 export { webhookUpdateRequestSchema, type WebhookUpdateRequest } from "./models/webhook-update-request.js";
 
 export {
+  parseUnivapayPublicApiWebhookEvent,
+  type UnivapayPublicApiWebhookEvent,
+} from "./webhooks/univapay-public-api-webhook-event.js";
+export {
+  WebhookRequest,
+  type RequestBodyStream,
+  type RequestHeaders,
+} from "./core/webhooks/webhook-request.js";
+
+export {
   CoreError as UnivapayPublicApiError,
   ResponseError,
   DecodeError,
@@ -829,6 +839,7 @@ export type { ApiPromise, ApiResult } from "./core/api-promise.js";
 export type { Pageable, PageableApiResult } from "./core/pagination/pageable.js";
 export type { HttpMethod, RequestOptions } from "./core/api-request.js";
 export type { RetryOptions, RequestRetryOptions, RetryAttempt, RetryReason } from "./core/retry.js";
+export type { HookOptions, BeforeRequestHook, AfterResponseHook, HookContext } from "./core/hooks.js";
 export type { BinaryContent, BinaryData, BinaryErrorContent, FileData, FileInput } from "./core/binary.js";
 export type { ErrorKind } from "./core/errors.js";
 export type { Declared, Undeclared } from "./core/api-error.js";

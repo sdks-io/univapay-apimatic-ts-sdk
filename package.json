@@ -38,6 +38,7 @@
     "tsconfig.tshy.json",
     "README.md",
     "api-reference.md",
+    "webhook-reference.md",
     "sdk-map.md",
     "map"
   ],

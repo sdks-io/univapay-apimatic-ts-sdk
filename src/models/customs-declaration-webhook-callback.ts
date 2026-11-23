@@ -11,9 +11,9 @@ export type CustomsDeclarationWebhookCallback = {
   /** イベントタイプの識別子 — このコールバックでは常に `customs_declaration_finished` になります。 */
   event?: CustomsDeclarationEvent;
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /**
    * `customs_declaration_finished` ウェブフックで配信される税関申告ペイロード。プラットフォームレベルの配信には `platform_id` と
    * `updated_on` が含まれる場合があります。
@@ -27,8 +27,8 @@ export const customsDeclarationWebhookCallbackSchema: Schema<CustomsDeclarationW
   s.object<CustomsDeclarationWebhookCallback>(
     {
       event: s.optional(s.lazy(() => customsDeclarationEventSchema)),
-      id: s.string(),
-      createdOn: s.dateTime(),
+      id: s.optional(s.string()),
+      createdOn: s.optional(s.dateTime()),
       data: s.optional(s.lazy(() => customsDeclarationWebhookDataSchema)),
       _keysMap: {
         createdOn: "created_on",

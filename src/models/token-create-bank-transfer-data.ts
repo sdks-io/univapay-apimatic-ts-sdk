@@ -8,7 +8,7 @@ export type TokenCreateBankTransferData = {
   /** ISO 8601 期間形式（例：'PT168H'）。 */
   expirationPeriod?: string;
   /** 有効期限に適用されるタイムシフト。通常、特定のタイムゾーンにおける一日の終わりに設定するために使用されます（例：'23:59:59+09:00'）。 */
-  expirationTimeShift?: string;
+  expirationTimeShift?: string | null;
   /** 振込を開始する消費者の氏名。 */
   name?: string;
   /** Properties the service sent or accepts beyond those declared. */
@@ -20,7 +20,7 @@ export const tokenCreateBankTransferDataSchema: Schema<TokenCreateBankTransferDa
     {
       brand: s.string(),
       expirationPeriod: s.optional(s.string()),
-      expirationTimeShift: s.optional(s.string()),
+      expirationTimeShift: s.optionalNullable(s.string()),
       name: s.optional(s.string()),
       _keysMap: {
         expirationPeriod: "expiration_period",

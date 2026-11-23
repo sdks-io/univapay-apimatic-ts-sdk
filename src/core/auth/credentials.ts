@@ -1,15 +1,16 @@
 /**
- * A credential, or a function that produces one.
+ * A secret — a token, an API key or a webhook signing secret — or a function that produces one.
  *
  * @remarks
- * A function is called on **every** request and its result is never cached, so a key or token can
- * be rotated without rebuilding the client. An empty string counts as absent.
+ * A function is called on **every** request, or every webhook `verify`, and its result is never
+ * cached, so a key or token can be rotated without rebuilding the client or the verifier. An
+ * empty string counts as absent.
  *
  * The function is handed the call's `signal`, or one that never aborts when the call was given
  * none. The SDK waits for the function to settle, so a function that does I/O should honour that
  * signal for a cancelled call to end promptly.
  */
-export type TokenProvider = string | ((signal: AbortSignal) => string | Promise<string>);
+export type SecretProvider = string | ((signal: AbortSignal) => string | Promise<string>);
 
 /** Username and password for HTTP Basic, sent base64 in the Authorization header. */
 export type BasicAuthCredentials = {

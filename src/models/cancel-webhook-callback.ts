@@ -8,9 +8,9 @@ export type CancelWebhookCallback = {
   /** イベントタイプの識別子 — このコールバックでは常に `cancel_finished` になります。 */
   event?: CancelEvent;
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /** 課金に対するキャンセルリクエストを表します。 */
   data?: Cancel;
   /** Properties the service sent or accepts beyond those declared. */
@@ -20,8 +20,8 @@ export type CancelWebhookCallback = {
 export const cancelWebhookCallbackSchema: Schema<CancelWebhookCallback> = s.object<CancelWebhookCallback>(
   {
     event: s.optional(s.lazy(() => cancelEventSchema)),
-    id: s.string(),
-    createdOn: s.dateTime(),
+    id: s.optional(s.string()),
+    createdOn: s.optional(s.dateTime()),
     data: s.optional(s.lazy(() => cancelSchema)),
     _keysMap: {
       createdOn: "created_on",

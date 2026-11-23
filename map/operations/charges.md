@@ -8,11 +8,11 @@ Accessor: `client.charges` · Source: `src/resources/charges.ts` · 12 operation
 
 ### captureCharge
 
-- **Signature**: `captureCharge(request: Charges.CaptureChargeRequest, options?: RequestOptions): ApiPromise<Record<string, unknown>, Charges.CaptureChargeError>`
+- **Signature**: `captureCharge(request: Charges.CaptureChargeRequest, options?: RequestOptions): ApiPromise<undefined, Charges.CaptureChargeError>`
 - **Wire**: `POST /stores/{storeId}/charges/{id}/capture`
 - **Auth**: `jwtToken`
 - **Request body**: `application/json` — the `body` field. **Optional**: omit it and the request carries no body and no `Content-Type` header at all
-- **Returns**: `Record<string, unknown>` — a bare `application/json` map; the success type *is* the map
+- **Returns**: `undefined` — the operation resolves to nothing
 - **Error**: `UnivapayPublicApiError` with `kind: "api"`, an instance of `Charges.CaptureChargeError` — **typed arms**, narrowed on `err.payload.kind`
 - **Error arms**: `"apiErrorModel"` [400] `ApiErrorModel` · `"apiErrorModel2"` [401] `ApiErrorModel` · `"apiErrorModel3"` [403] `ApiErrorModel` · `"apiErrorModel4"` [404] `ApiErrorModel` · `"error429"` [429] `Record<string, unknown>` · `"undeclared"` [any other] `rawBody: ArrayBuffer`
 

@@ -15,8 +15,7 @@ export type MerchantWebhookSubscriptionPlanConfiguration = {
   fixedCycleAmount?: boolean | null;
   /** 定期課金プランを使用できる決済手段の種類。 */
   supportedPaymentTypes?: string[] | null;
-  /** バックエンド設定モデルによってシリアライズされた金額オブジェクト。 */
-  minChargeAmount?: MerchantWebhookMoneyAmount;
+  minChargeAmount?: MerchantWebhookMoneyAmount | null;
   /** 定期課金プラン精算のために許容される最大支払い遅延期間。 */
   maxPayoutPeriod?: string | null;
   /** Properties the service sent or accepts beyond those declared. */
@@ -30,7 +29,7 @@ export const merchantWebhookSubscriptionPlanConfigurationSchema: Schema<Merchant
       fixedCycle: s.optionalNullable(s.boolean()),
       fixedCycleAmount: s.optionalNullable(s.boolean()),
       supportedPaymentTypes: s.optionalNullable(s.array(s.string())),
-      minChargeAmount: s.optional(s.lazy(() => merchantWebhookMoneyAmountSchema)),
+      minChargeAmount: s.optionalNullable(s.lazy(() => merchantWebhookMoneyAmountSchema)),
       maxPayoutPeriod: s.optionalNullable(s.string()),
       _keysMap: {
         fixedCycle: "fixed_cycle",

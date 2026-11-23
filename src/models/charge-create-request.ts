@@ -24,7 +24,7 @@ export type ChargeCreateRequest = {
   amount: number;
   /** ISO-4217 通貨コード。 @default "JPY" */
   currency?: string;
-  /** false の場合、オーソリ（保留）のみを作成します。 @default true */
+  /** false の場合、オーソリ（保留）のみを作成します。 */
   capture?: boolean;
   /** カードの場合は自動キャプチャ日、コンビニ/銀行の場合は支払い期限。注意: セブン-イレブン、セイコーマート、PayEasy では時間の指定は無視されます。 */
   captureAt?: Date;
@@ -50,7 +50,7 @@ const chargeCreateRequestProperties: s.Shape<ChargeCreateRequest> = {
   transactionTokenId: s.string(),
   amount: s.int(),
   currency: s.defaulted(s.string(), "JPY"),
-  capture: s.defaulted(s.boolean(), true),
+  capture: s.optional(s.boolean()),
   captureAt: s.optional(s.dateTime()),
   merchantTransactionId: s.optional(s.string()),
   metadata: s.optional(s.lazy(() => genericMetadataSchema)),

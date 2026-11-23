@@ -42,8 +42,9 @@ All `ClientOptions` fields (source: `src/client-options.ts`; every field is `rea
 | `serverOptions` | the server's base-URL and template-variable overrides | `{}` — the resolver merges the declared defaults in |
 | `retry` | `RetryOptions` | the `RetryOptions` defaults below |
 | `logging` | `LoggingOptions` | off — the `LoggingOptions` defaults below |
+| `hooks` | `HookOptions` | none — the `HookOptions` types below |
 | `fetch` | `FetchLike \| undefined` | the global `fetch`, resolved by the transport |
-| `jwtToken` | `TokenProvider \| undefined` | unset |
+| `jwtToken` | `SecretProvider \| undefined` | unset |
 
 The 1 auth field is optional, and an unset one is not an error — the operation that wanted it simply sends no credential. What each one puts on the wire, and which operations require it, are under Servers & auth.
 
@@ -99,7 +100,18 @@ Logging types named by the fields above — their **declared types**, verbatim f
 | `Logger` — the `logger` field | `error(message: string, details: LogDetails): void` · `warn(message: string, details: LogDetails): void` · `info(message: string, details: LogDetails): void` · `debug(message: string, details: LogDetails): void` | `src/core/logging.ts` |
 | `LogDetails` — narrow on `event` | `HttpRequestDetails \| RequestHeadersDetails \| RequestBodyDetails \| HttpResponseDetails \| ResponseHeadersDetails \| HttpRetryingDetails \| HttpFailedDetails`, each exported as a type | `src/core/logging.ts` |
 
-**`ClientOptions.fetch` is the one transport extension point** — there are no hooks, no middleware and no interceptors, so a proxy, a custom agent and extra headers all go here. The SDK calls a replacement with one argument, the `Request` of the attempt, and no `init`. A replacement **must forward that `Request`, or its `signal`,** to whatever actually performs the request. Drop the signal and both the per-call signal and `retry.timeout` go inert — the call neither aborts nor times out. To add a header, copy the `Request` with `new Request(request)` and set it on the copy's `headers`: passing `{ headers }` to the copy replaces every header the SDK set rather than adding to them. A replacement may reject with an error of its own when that signal aborts: a timeout is still a `TimeoutError` that is retried, and an abort of `RequestOptions.signal` still rejects with the caller's own `reason`.
+**Hooks.** `ClientOptions.hooks` and `RequestOptions.hooks` each take a `HookOptions`: a `beforeRequest` list and an `afterResponse` list of plain functions (source: `src/core/hooks.ts`). Each `beforeRequest` hook is handed the attempt's `Request`, a `HookContext` and the call's signal once the credential is applied, before the request is logged and sent; set a header on it with `request.headers.set(…)` and return nothing, or return a `Request` to send in its place, built from the one handed in (`new Request(request, { … })`) so it keeps the call's signal. Each `afterResponse` hook is handed the `Response` once its headers arrive, before the retry decision; return nothing to keep it, or return a `Response` to put in its place: the retry decision and the decoder read the returned one, and a hook that returns a different response owns the one it was handed, so it reads it, builds on its body or cancels it. To read the body and keep the response, read `response.clone()`: nothing checks that a hook left the body unread, and one that uses it up without returning another response leaves the client nothing to decode, so the call fails with a `DecodeError`. Reading a clone waits for the whole body, so read only the status and headers of an event stream or a download: a hook that reads either one's clone holds the stream back until it ends and buffers the download whole. The client's hooks run first, then the call's, list by list, each hook handed what the one before it left, and a call's hooks never replace the client's. A hook may return a promise, which is awaited outside `retry.timeout`. Hooks run on every attempt. A hook that throws ends the call with what it threw, unretried. The client's lists are not read when the client is built: each call reads them as it starts. The values are not checked at runtime: one the types rule out, a list that is not iterable or an entry that is not a function, is the platform's `TypeError` from the call. A returned request changes what is sent, not the URL the log lines and the call's errors name.
+
+| Type | Members | Source |
+| --- | --- | --- |
+| `HookOptions` | `beforeRequest?: readonly BeforeRequestHook[] \| undefined` · `afterResponse?: readonly AfterResponseHook[] \| undefined` | `src/core/hooks.ts` |
+| `BeforeRequestHook` | `(request: Request, context: HookContext, signal: AbortSignal) => Request \| void \| Promise<Request \| void>` | `src/core/hooks.ts` |
+| `AfterResponseHook` | `(response: Response, context: HookContext, signal: AbortSignal) => Response \| void \| Promise<Response \| void>` | `src/core/hooks.ts` |
+| `HookContext` | `method: HttpMethod` · `uri: string` · `options: Omit<RequestOptions, "signal"> \| undefined` | `src/core/hooks.ts` |
+
+All four are exported as types. `uri` is the URL the call dials without its query, the same `uri` its errors carry; a hook's third argument is the call's `signal`, or one that never aborts when the call passed none, and `options` is the call's `RequestOptions`, typed without that `signal`.
+
+**`ClientOptions.fetch` replaces the transport** — a proxy, a custom agent and a mock go here; a header or a metric belongs in a hook. There is no middleware chain. The SDK calls a replacement with one argument, the `Request` of the attempt, and no `init`. A replacement **must forward that `Request`, or its `signal`,** to whatever actually performs the request. Drop the signal and both the per-call signal and `retry.timeout` go inert — the call neither aborts nor times out. To add a header, copy the `Request` with `new Request(request)` and set it on the copy's `headers`: passing `{ headers }` to the copy replaces every header the SDK set rather than adding to them. A replacement may reject with an error of its own when that signal aborts: a timeout is still a `TimeoutError` that is retried, and an abort of `RequestOptions.signal` still rejects with the caller's own `reason`.
 
 **Cancellation.** The `signal` on `RequestOptions` is the per-request cancellation surface. Aborting rejects with the signal's **own `reason`** — whatever you passed to `abort()`, or the platform `DOMException` a bare `abort()` supplies — unwrapped, so it is **not** an `UnivapayPublicApiError` and a `catch` that tests the family must rethrow it. An already-aborted signal rejects immediately. The `retry.timeout` that bounded the attempt is the SDK's own and does stay in the family, as `err.kind === "timeout"`. It starts once the credential is in hand and covers the request up to its response headers — not obtaining the credential and not reading the body, which only the signal bounds, so a body that stalls after its headers holds a call with no signal until the transport gives up.
 
@@ -107,7 +119,7 @@ The entire per-request surface is the optional second argument of every operatio
 
 | Type | Members | Source |
 | --- | --- | --- |
-| `RequestOptions` | `signal?: AbortSignal \| undefined` · `retry?: RequestRetryOptions` · `logging?: RequestLoggingOptions` | `src/core/api-request.ts` |
+| `RequestOptions` | `signal?: AbortSignal \| undefined` · `retry?: RequestRetryOptions` · `logging?: RequestLoggingOptions` · `hooks?: HookOptions` | `src/core/api-request.ts` |
 | `RequestRetryOptions` — `Pick<RetryOptions, "maxRetries" \| "timeout" \| "statusCodesToRetry">` | `maxRetries?: number` · `timeout?: number` · `statusCodesToRetry?: readonly number[]` | `src/core/retry.ts` |
 | `RequestLoggingOptions` — `Pick<LoggingOptions, "level">` | `level?: LogLevel` | `src/core/logging.ts` |
 
@@ -117,10 +129,10 @@ The entire per-request surface is the optional second argument of every operatio
 
 | You might reach for | Reality |
 | --- | --- |
-| hooks, middleware, interceptors, `onRequest`/`onResponse` | none. `fetch` is the one transport extension point |
+| middleware, interceptors, `onError` | none. `hooks` gives `beforeRequest` and `afterResponse`, above; nothing wraps the call, and an attempt with no response reaches no `afterResponse` hook |
 | SSE, `text/event-stream` | no event streams. Every decoder reads the body to completion, bar a binary success, which hands its stream over unread |
 | multipart <em>responses</em>, XML bodies | none. A multipart reply is not decoded and an XML body is not sent — an operation declaring either is still emitted, with no body to supply or read |
-| per-request `headers`, `baseUrl`, idempotency key | none. `RequestOptions` is `{ signal, retry, logging }`; a header, a base URL and a caller-supplied idempotency key are not on it |
+| per-request `headers`, `baseUrl`, idempotency key | not as fields. `RequestOptions` is `{ signal, retry, logging, hooks }`; a call's `beforeRequest` hook can set a header, the minted `Idempotency-Key` included, and a base URL cannot be set per call. Create a replacement key once per call, outside the hook: a hook runs on every attempt, so a key made inside it differs on each retry |
 | the raw `fetch` `Response` | deliberately unreachable. `status` and `headers` are on `asApiResult()` and on a thrown `ResponseError` |
 
 ---
@@ -162,7 +174,7 @@ Core types (public members with their declared types; all are `readonly`):
 
 ```ts
 try {
-  const response = await client.charges.captureCharge({
+  await client.charges.captureCharge({
     storeId: "0cab399b-5621-425b-993b-f8507eba1e78",
     id: "c4e87129-cad4-47fb-8ded-b4c0a4ae0dd4",
     idempotencyKey: "f64be872-353d-4c3c-84cb-3dc617fe89f7",
@@ -213,7 +225,7 @@ try {
     .asApiResult();
   // TODO: Use 'result.status' and 'result.headers' to read the raw response status and headers
   if (result.ok) {
-    // TODO: Use 'result.value' — what this operation resolves to
+    // TODO: The call succeeded and resolves to no body
   } else {
     // TODO: Use 'result.message', 'result.method' and 'result.uri', and narrow 'result.payload'
   }
@@ -247,7 +259,7 @@ Each page below carries one block per operation, with bullets in the fixed order
 | **The request body and its media type are stated on every block**, by a **Request body** bullet that is never omitted. `none` means no body **and no `Content-Type` header**, and a named media type means the body is **required** — the request type's field is not optional | here | the spec declared the body optional — the bullet adds **Optional**, the field is `field?:`, and omitting it sends no body and no `Content-Type` header at all |
 | **Resolves once, to one whole value** — except a binary body, which resolves to a stream the caller reads. No SSE and no partial results | here, Not on this SDK | the operation is paged — it returns a `Pageable`, the first request goes out when a loop starts, and each page resolves on its own as the loop reaches it. Its **Returns** bullet says so |
 | **Six identity headers ride every request** — `User-Agent`, `X-APIMatic-Lang`, `X-APIMatic-Package-Version`, `X-APIMatic-Gen-Version`, `X-APIMatic-OS` and `X-APIMatic-Runtime`. They identify the generated SDK, so **no option configures them** | here | the operation declared a header of the same name — the operation's layer is folded after the client's, so its value wins |
-| **A fresh `Idempotency-Key` rides every non-GET call that does not declare that header itself**, minted per call in the operation's own header layer. It makes a *replayed* request safe, not a repeated one — a value that changes per call deduplicates nothing, so it is no substitute for a key the API documents. **No option sets it**, and once minted it is always sent — a runtime with no `crypto` global mints it from `Math.random` mixed with the clock and a per-process counter | here | the operation is a GET, or declared that header itself — then its own value stands and nothing is minted |
+| **A fresh `Idempotency-Key` rides every non-GET call that does not declare that header itself**, minted per call in the operation's own header layer. It makes a *replayed* request safe, not a repeated one — a value that changes per call deduplicates nothing, so it is no substitute for a key the API documents. **No option sets it directly, and a call's `beforeRequest` hook can replace it**; once minted it is always sent — a runtime with no `crypto` global mints it from `Math.random` mixed with the clock and a per-process counter | here | the operation is a GET, or declared that header itself — then its own value stands and nothing is minted |
 | **Server group `default`** | here, Servers & auth | the operation is on another group — its block carries a **Server** bullet |
 | **Every operation states its auth requirement**, by an **Auth** bullet that is never omitted — one scheme, a composition over schemes, or `none` for a public operation | here, Servers & auth | never — the bullet is always present |
 | **Every value is schema-encoded before the request is built** — a wrong type or format rejects and nothing is sent. **An omitted field that has a default is still sent, with that default**, filled by the SDK rather than by the server | here | the field has a default — it appears in the **Fields** table `Default` column |
@@ -320,7 +332,7 @@ A scheme **contributes** headers, query parameters and cookies rather than mutat
 
 **Composition is emitted, not configured.** Where the spec puts two schemes in one requirement the SDK sends **both**; where it lists alternatives the SDK sends the **first configured** one, in the order the **Auth** bullet prints them. The combinators that express this (`allAuth`, `anyAuth`, `noneAuth`) live in the generated resource modules and are **not exported**.
 
-**A credential may be a function.** Every field typed `TokenProvider` is re-read on **every** request with no caching, so a key can rotate without rebuilding the client. An empty string counts as absent, and a function is treated as present without being invoked. The function is handed the call's `signal`, or one that never aborts when the call was given none, and the SDK waits for it to settle — so a function that fetches its credential should pass that signal on, or a cancelled call waits for the fetch to finish.
+**A credential may be a function.** Every field typed `SecretProvider` is re-read on **every** request with no caching, so a key can rotate without rebuilding the client. An empty string counts as absent, and a function is treated as present without being invoked. The function is handed the call's `signal`, or one that never aborts when the call was given none, and the SDK waits for it to settle — so a function that fetches its credential should pass that signal on, or a cancelled call waits for the fetch to finish.
 
 **An unconfigured scheme does not throw.** The request goes out without that credential and the server decides. So a 401 on a call you believed was authenticated is usually an unset credential field rather than an SDK failure — check the operation's **Auth** bullet against what the client was given.
 
@@ -332,8 +344,8 @@ A scheme **contributes** headers, query parameters and cookies rather than mutat
 
 | Group | Base URL template | Template variables (default) |
 | --- | --- | --- |
-| `default` | `{baseUrl}` | `baseUrl2` = `"https://api.gyro-n.money"` |
-| `directDebit` | `{directDebitBaseUrl}` | `directDebitBaseUrl` = `"https://staging-direct-debit.gopay-services.com"` |
+| `default` | `https://api.univapay.com` | — |
+| `directDebit` | `https://direct-debit.gopay-services.com` | — |
 
 A `baseUrl` override replaces the template verbatim; variable values are percent-encoded into it. Server variables are filled in once, as the client is built; only the path parameters are expanded per request.
 
@@ -348,9 +360,9 @@ The facts that change what you type, and the floors that decide whether the pack
 |  |  |
 | --- | --- |
 | One entry, two dialects | `import` resolves `dist/esm`, `require` resolves `dist/commonjs`, both through the single `.` export. In a TypeScript CommonJS file the typed spelling is `import sdk = require("univapay-public-api")`; a plain `require` destructure works at run time but yields no types. `instanceof` is reliable **within** one dialect — if your app loads both, the two copies declare separate error classes |
-| Consumer compiler settings | Under `exactOptionalPropertyTypes`, **omit or spread** an absent optional rather than assigning `undefined` to it. Under `verbatimModuleSyntax`, names that carry no runtime value (the options types, every model type) must be imported with `import type` |
-| Required globals, and only these | Always: `fetch` (or a replacement passed as the `fetch` option), `AbortController`, `AbortSignal.any`, `Headers`, `Request`, `URL`, `setTimeout` and `clearTimeout`, `JSON`, `BigInt`, and `console`, which is read as the package loads. `crypto.randomUUID` or `crypto.getRandomValues` mints the `Idempotency-Key` a non-GET call carries — **read and never required**, since a runtime offering neither fills the bytes from `Math.random` mixed with the clock and a per-process counter, so the header is always sent. Three more are **read and never required** — `process`, `navigator` and `EdgeRuntime`, which name the host in `X-APIMatic-OS` and `X-APIMatic-Runtime`. A runtime offering none of them sends neither header and works unchanged. `process.env.UNIVAPAY_PUBLIC_API_CLIENT_LOG` is read at most once, when the client is built and code sets neither a `logger` nor a valid `level`. Logging writes to `console` only as the default logger, and for the warning on a `UNIVAPAY_PUBLIC_API_CLIENT_LOG` value that is not a level. |
-| Values that cross the boundary | `Date` for `date-time`, `string` for `date`, `ArrayBuffer` for an undeclared error body, `Headers` on a result and on a thrown `ResponseError`. The engine also carries a `bigint` int64 path and a base64 `bytes()` codec, reached only where a model uses them |
+| Consumer compiler settings | Under `exactOptionalPropertyTypes`, **omit or spread** an absent optional rather than assigning `undefined` to it. Under `verbatimModuleSyntax`, names that carry no runtime value (the options types, `RequestHeaders`, `RequestBodyStream`, every model type) must be imported with `import type` |
+| Required globals, and only these | Always: `fetch` (or a replacement passed as the `fetch` option), `AbortController`, `AbortSignal.any`, `Headers`, `Request`, `URL`, `setTimeout` and `clearTimeout`, `JSON`, `BigInt`, and `console`, which is read as the package loads. `crypto.randomUUID` or `crypto.getRandomValues` mints the `Idempotency-Key` a non-GET call carries — **read and never required**, since a runtime offering neither fills the bytes from `Math.random` mixed with the clock and a per-process counter, so the header is always sent. Three more are **read and never required** — `process`, `navigator` and `EdgeRuntime`, which name the host in `X-APIMatic-OS` and `X-APIMatic-Runtime`. A runtime offering none of them sends neither header and works unchanged. `process.env.UNIVAPAY_PUBLIC_API_CLIENT_LOG` is read at most once, when the client is built and code sets neither a `logger` nor a valid `level`. Logging writes to `console` only as the default logger, and for the warning on a `UNIVAPAY_PUBLIC_API_CLIENT_LOG` value that is not a level. A webhook adds its own, each reached only once its code runs. `parseUnivapayPublicApiWebhookEvent` decodes the body with a fatal `TextDecoder`. `WebhookRequest.fromBytes` encodes a string body with `TextEncoder`, and `fromRequest` reads a clone of the `Request`. `fromStream` reads its body with `for await`, so a web `ReadableStream` needs `ReadableStream[Symbol.asyncIterator]`, which Safari 17.4 lacks; a Node `Readable` does not. |
+| Values that cross the boundary | `Date` for `date-time`, `string` for `date`, `ArrayBuffer` for an undeclared error body, `Headers` on a result and on a thrown `ResponseError`. The engine also carries a `bigint` int64 path and a base64 `bytes()` codec, reached only where a model uses them. A webhook takes its body as a `string`, `Uint8Array`, `ArrayBuffer`, web `ReadableStream` or async iterable of `Uint8Array`, and its headers as `Headers` or a record. It keeps the bytes as a `Uint8Array` on `WebhookRequest.body`, and an event whose body fits no model carries a `Record<string, unknown>` payload |
 | Browser distribution | The package ships `dist/esm` and `dist/commonjs` and nothing else — **no bundle, no UMD file, no CDN artifact**. Use it through a bundler, which resolves `zod/v4-mini`, deduplicates it against your own copy and tree-shakes the rest |
 | Other runtimes | Deno, Bun, Cloudflare Workers and Vercel Edge are all likely to work — the SDK needs only the globals above and imports no Node built-in — but **none of them is tested for this package**, so nothing here claims support for them |
 

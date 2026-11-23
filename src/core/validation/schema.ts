@@ -104,11 +104,15 @@ type Bag = readonly [key: string, entry: Entry<unknown>];
  * such as `minLength`, `pattern` or `minimum` exports a schema that enforces them in both
  * directions, so `validate` on it is how a value is checked before it is sent; the structural
  * twin the operations use stays inside the module.
+ *
+ * `matches` is the same check as `encode` without the result or the throw: `true` when a value
+ * has the SDK form, narrowing it to `T`. Use it on a value that is already decoded.
  */
 export type Schema<T, W = Encoded<T>> = {
   readonly decode: (value: unknown) => T;
   encode(value: T): W;
   validate(value: T): ValidationResult;
+  readonly matches: (value: unknown) => value is T;
 };
 
 /**
@@ -136,6 +140,14 @@ export type EnumSchema<T> = Schema<T, T> & {
 type Built<T, W> = Schema<T, W> & {
   readonly zod: () => ZodMiniType<T, W>;
   readonly tagged: (discriminator: string, value: string) => ZodMiniType<T, W>;
+  readonly keys: () => DeclaredKeys | undefined;
+};
+
+type BuiltOptions<T, W> = Partial<Pick<Built<T, W>, "tagged" | "keys">>;
+
+type DeclaredKeys = {
+  readonly wire: ReadonlySet<string>;
+  readonly sdk: ReadonlySet<string>;
 };
 
 export function object<T>(shape: Shape<T, never>): Schema<T, Encoded<T, never>>;
@@ -148,40 +160,81 @@ export function object<T, K extends string>(
   options?: ObjectOptions<T, K>,
 ): Schema<T, Encoded<T, K>> {
   const bag = bagOf(options);
-  let memo: ZodMiniType<T, Encoded<T, K>> | undefined;
-  const zodType = (): ZodMiniType<T, Encoded<T, K>> => (memo ??= buildObject(shape, bag));
-  return {
-    zod: zodType,
+  const zodType = memoized(() => buildObject(shape, bag));
+  return schemaOf(zodType, {
     tagged: (discriminator, value) => buildObject(shape, bag, [discriminator, value]),
-    decode: (value) => decodeWith(zodType(), value),
-    encode: (value) => encodeWith(zodType(), value),
-    validate: (value) => validateWith(zodType(), value),
-  } as Built<T, Encoded<T, K>>;
+    keys: () => declaredKeysOf(shape, bag),
+  });
 }
 
 function bagOf(options: Readonly<Record<string, Entry<unknown>>> | undefined): Bag | undefined {
   return options === undefined ? undefined : Object.entries(options)[0];
 }
 
+type Candidate<M> = {
+  readonly type: ZodMiniType<M, Encoded<M>>;
+  readonly keys: DeclaredKeys | undefined;
+};
+
+type Fitted<M> = M | Record<string, unknown>;
+
+export function bestFit<M extends object>(
+  models: readonly [Schema<M, unknown>, ...Schema<M, unknown>[]],
+): Schema<Fitted<M>> {
+  const build = (): ZodMiniType<Fitted<M>, Encoded<Fitted<M>>> => {
+    const candidates = models.map((model): Candidate<M> => {
+      const schema = built(model as Schema<M, Encoded<M>>);
+      return { type: schema.zod(), keys: schema.keys() };
+    });
+    return zod.codec(zod.custom<Record<string, unknown>>(isRecord), zod.custom<Fitted<M>>(isRecord), {
+      decode: (body) => {
+        for (const { type } of rankByUndeclared(candidates, Object.keys(body), "wire")) {
+          const result = type.safeParse(body);
+          if (result.success) return result.data;
+        }
+        return { ...body };
+      },
+      encode: (value) => {
+        for (const { type } of rankByUndeclared(candidates, Object.keys(value), "sdk")) {
+          const result = zod.safeEncode(type, value as M);
+          if (result.success) return result.data as Record<string, unknown>;
+        }
+        return value as Record<string, unknown>;
+      },
+    }) as unknown as ZodMiniType<Fitted<M>, Encoded<Fitted<M>>>;
+  };
+  return schemaOf(memoized(build), { keys: () => keysOfAll(models) });
+}
+
+function rankByUndeclared<M>(
+  candidates: readonly Candidate<M>[],
+  keys: readonly string[],
+  side: keyof DeclaredKeys,
+): readonly Candidate<M>[] {
+  return candidates
+    .map((candidate) => ({ candidate, undeclared: undeclaredCount(candidate.keys?.[side], keys) }))
+    .sort((a, b) => a.undeclared - b.undeclared)
+    .map(({ candidate }) => candidate);
+}
+
+function undeclaredCount(declared: ReadonlySet<string> | undefined, keys: readonly string[]): number {
+  if (declared === undefined) return Number.POSITIVE_INFINITY;
+  return keys.filter((key) => !declared.has(key)).length;
+}
+
 export function discriminatedUnion<T>(
   discriminator: string,
   variants: Readonly<Record<string, Schema<unknown, unknown>>>,
 ): Schema<T, Encoded<T>> {
-  let memo: ZodMiniType<T, Encoded<T>> | undefined;
   const build = (): ZodMiniType<T, Encoded<T>> => {
     const members = Object.entries(variants).map(([value, variant]) =>
       built(variant).tagged(discriminator, value),
     );
     return zod.discriminatedUnion(discriminator, members as never);
   };
-  const zodType = (): ZodMiniType<T, Encoded<T>> => (memo ??= build());
-  return {
-    zod: zodType,
-    tagged: () => zodType(),
-    decode: (value) => decodeWith(zodType(), value),
-    encode: (value) => encodeWith(zodType(), value),
-    validate: (value) => validateWith(zodType(), value),
-  } as Built<T, Encoded<T>>;
+  return schemaOf(memoized(build), {
+    keys: () => keysOfAll(Object.values(variants), discriminator),
+  });
 }
 
 export function enumOf<T extends string | number>(members: Readonly<Record<string, T>>): EnumSchema<T> {
@@ -196,13 +249,7 @@ export function enumOf<T extends string | number>(members: Readonly<Record<strin
 }
 
 export function of<T, W = Encoded<T>>(zodType: ZodMiniType<T, W>): Schema<T, W> {
-  return {
-    zod: () => zodType,
-    tagged: () => zodType,
-    decode: (value) => decodeWith(zodType, value),
-    encode: (value) => encodeWith(zodType, value),
-    validate: (value) => validateWith(zodType, value),
-  } as Built<T, W>;
+  return schemaOf(() => zodType);
 }
 
 export function decodeWith<T>(zodType: ZodMiniType<T, unknown>, value: unknown): T {
@@ -223,6 +270,10 @@ export function validateWith<T, W>(zodType: ZodMiniType<T, W>, value: T): Valida
   return { success: false, message: issuesList(result.error) };
 }
 
+export function matchesWith<T, W>(zodType: ZodMiniType<T, W>, value: unknown): value is T {
+  return zod.safeEncode(zodType, value as T).success;
+}
+
 export function decodeEntry<V>(schema: Entry<V>, value: unknown): V {
   return isSchema(schema) ? schema.decode(value) : decodeWith(schema, value);
 }
@@ -232,15 +283,52 @@ export function encodeEntry<V, W>(schema: Entry<V, W>, value: V): W {
 }
 
 export function lazySchema<T>(target: () => Schema<T, Encoded<T>>): Schema<T, Encoded<T>> {
-  let memo: Built<T, Encoded<T>> | undefined;
-  const schema = (): Built<T, Encoded<T>> => (memo ??= built(target()));
-  return {
-    zod: () => schema().zod(),
+  const schema = memoized(() => built(target()));
+  return schemaOf(() => schema().zod(), {
     tagged: (discriminator, value) => schema().tagged(discriminator, value),
-    decode: (value) => schema().decode(value),
-    encode: (value) => schema().encode(value),
-    validate: (value) => schema().validate(value),
-  } as Built<T, Encoded<T>>;
+    keys: () => schema().keys(),
+  });
+}
+
+function schemaOf<T, W>(zodType: () => ZodMiniType<T, W>, options: BuiltOptions<T, W> = {}): Built<T, W> {
+  return {
+    zod: zodType,
+    tagged: options.tagged ?? (() => zodType()),
+    keys: options.keys ?? (() => undefined),
+    decode: (value) => decodeWith(zodType(), value),
+    encode: (value) => encodeWith(zodType(), value),
+    validate: (value) => validateWith(zodType(), value),
+    matches: (value) => matchesWith(zodType(), value),
+  };
+}
+
+function memoized<R>(build: () => R): () => R {
+  let memo: R | undefined;
+  return () => (memo ??= build());
+}
+
+function declaredKeysOf(shape: object, bag: Bag | undefined): DeclaredKeys {
+  const keysMap = keysMapOf(shape);
+  const fields = Object.keys(shape).filter((key) => key !== "_keysMap");
+  return {
+    wire: new Set(fields.map((key) => keysMap.get(key) ?? key)),
+    sdk: new Set(bag === undefined ? fields : [...fields, bag[0]]),
+  };
+}
+
+function keysOfAll(
+  schemas: readonly Schema<unknown, unknown>[],
+  ...shared: readonly string[]
+): DeclaredKeys | undefined {
+  const wire = new Set(shared);
+  const sdk = new Set(shared);
+  for (const schema of schemas) {
+    const own = built(schema).keys();
+    if (own === undefined) return undefined;
+    for (const key of own.wire) wire.add(key);
+    for (const key of own.sdk) sdk.add(key);
+  }
+  return { wire, sdk };
 }
 
 type WireObject = ZodMiniType<Record<string, unknown>, Record<string, unknown>>;
@@ -250,7 +338,7 @@ function buildObject<T, K extends string>(
   bag: Bag | undefined,
   tag?: readonly [string, string],
 ): ZodMiniType<T, Encoded<T, K>> {
-  const keysMap = new Map(Object.entries((shape as { _keysMap?: Record<string, string> })._keysMap ?? {}));
+  const keysMap = keysMapOf(shape);
   const wire: Record<string, ZodMiniType<unknown, unknown>> = {};
   const renames: [string, string][] = [];
 
@@ -277,6 +365,10 @@ function buildObject<T, K extends string>(
           encode: (value) => renameKeys(value, renames, "encode"),
         });
   return renaming as ZodMiniType<T, Encoded<T, K>>;
+}
+
+function keysMapOf(shape: object): ReadonlyMap<string, string> {
+  return new Map(Object.entries((shape as { _keysMap?: Record<string, string> })._keysMap ?? {}));
 }
 
 function collectExtras(

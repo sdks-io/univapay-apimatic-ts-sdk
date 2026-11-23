@@ -8,9 +8,9 @@ export type BankTransferStatusWebhookCallback = {
   /** イベントタイプの識別子 — このコールバックでは常に `bank_transfer_status_updated` になります。 */
   event?: BankTransferEvent;
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /**
    * `bank_transfer_status_updated` ウェブフックイベントのデータペイロード。金額やメタデータと並んで、インライン化された銀行振込拡張フィールドが含まれています。
    */
@@ -23,8 +23,8 @@ export const bankTransferStatusWebhookCallbackSchema: Schema<BankTransferStatusW
   s.object<BankTransferStatusWebhookCallback>(
     {
       event: s.optional(s.lazy(() => bankTransferEventSchema)),
-      id: s.string(),
-      createdOn: s.dateTime(),
+      id: s.optional(s.string()),
+      createdOn: s.optional(s.dateTime()),
       data: s.optional(s.lazy(() => bankTransferStatusDataSchema)),
       _keysMap: {
         createdOn: "created_on",

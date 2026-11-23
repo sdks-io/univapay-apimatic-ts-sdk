@@ -77,6 +77,8 @@ const client = new sdk.UnivapayPublicApiClient({
 
 For code examples and error responses, see [API Reference](api-reference.md).
 
+For webhook events, see [Webhook Reference](webhook-reference.md).
+
 ---
 
 ## SDK map

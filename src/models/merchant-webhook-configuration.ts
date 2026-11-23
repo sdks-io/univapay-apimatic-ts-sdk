@@ -77,8 +77,7 @@ import {
 export type MerchantWebhookConfiguration = {
   /** カードブランドごとの上書き設定が存在しない場合に適用されるデフォルトの料率（パーセント手数料）。 */
   percentFee?: number | null;
-  /** 通貨ごとの一律手数料（フラットフィ）の上書き設定。 */
-  flatFees?: MerchantWebhookMoneyAmount[];
+  flatFees?: MerchantWebhookMoneyAmount[] | null;
   /** 加盟店のロゴ URL。 */
   logoUrl?: string | null;
   /** 加盟店の国コード。 */
@@ -87,14 +86,12 @@ export type MerchantWebhookConfiguration = {
   language?: string | null;
   /** 加盟店の表示タイムゾーン。 */
   displayTimeZone?: string | null;
-  /** バックエンド設定モデルによってシリアライズされた金額オブジェクト。 */
-  minTransferPayout?: MerchantWebhookMoneyAmount;
+  minTransferPayout?: MerchantWebhookMoneyAmount | null;
   /** 通貨ごとの許容最小課金金額。 */
-  minimumChargeAmounts?: MerchantWebhookMoneyAmount[];
+  minimumChargeAmounts?: MerchantWebhookMoneyAmount[] | null;
   /** 通貨ごとの許容最大課金金額。 */
-  maximumChargeAmounts?: MerchantWebhookMoneyAmount[];
-  /** 加盟店が継承した振込（精算）スケジュール設定。 */
-  transferSchedule?: MerchantWebhookTransferScheduleConfiguration;
+  maximumChargeAmounts?: MerchantWebhookMoneyAmount[] | null;
+  transferSchedule?: MerchantWebhookTransferScheduleConfiguration | null;
   /** 加盟店のトランザクション通知設定。 */
   userTransactionsConfiguration?: MerchantWebhookUserTransactionsConfiguration;
   /** 加盟店が継承したリカーリングトークンの設定。 */
@@ -139,15 +136,15 @@ export type MerchantWebhookConfiguration = {
 
 const merchantWebhookConfigurationProperties: s.Shape<MerchantWebhookConfiguration> = {
   percentFee: s.optionalNullable(s.float64()),
-  flatFees: s.optional(s.array(s.lazy(() => merchantWebhookMoneyAmountSchema))),
+  flatFees: s.optionalNullable(s.array(s.lazy(() => merchantWebhookMoneyAmountSchema))),
   logoUrl: s.optionalNullable(s.string()),
   country: s.optionalNullable(s.string()),
   language: s.optionalNullable(s.string()),
   displayTimeZone: s.optionalNullable(s.string()),
-  minTransferPayout: s.optional(s.lazy(() => merchantWebhookMoneyAmountSchema)),
-  minimumChargeAmounts: s.optional(s.array(s.lazy(() => merchantWebhookMoneyAmountSchema))),
-  maximumChargeAmounts: s.optional(s.array(s.lazy(() => merchantWebhookMoneyAmountSchema))),
-  transferSchedule: s.optional(s.lazy(() => merchantWebhookTransferScheduleConfigurationSchema)),
+  minTransferPayout: s.optionalNullable(s.lazy(() => merchantWebhookMoneyAmountSchema)),
+  minimumChargeAmounts: s.optionalNullable(s.array(s.lazy(() => merchantWebhookMoneyAmountSchema))),
+  maximumChargeAmounts: s.optionalNullable(s.array(s.lazy(() => merchantWebhookMoneyAmountSchema))),
+  transferSchedule: s.optionalNullable(s.lazy(() => merchantWebhookTransferScheduleConfigurationSchema)),
   userTransactionsConfiguration: s.optional(s.lazy(() => merchantWebhookUserTransactionsConfigurationSchema)),
   recurringTokenConfiguration: s.optional(s.lazy(() => merchantWebhookRecurringTokenConfigurationSchema)),
   securityConfiguration: s.optional(s.lazy(() => merchantWebhookSecurityConfigurationSchema)),

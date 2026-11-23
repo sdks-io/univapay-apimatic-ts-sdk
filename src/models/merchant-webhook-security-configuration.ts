@@ -29,14 +29,12 @@ export type MerchantWebhookSecurityConfiguration = {
   inspectSuspiciousLoginAfter?: string | null;
   /** 制限がかかるまでに許容される最大返金対売上比率。 */
   refundPercentLimit?: number | null;
-  /** カードごとの利用頻度（ベロシティ）制限の設定。 */
-  limitChargeByCardConfiguration?: MerchantWebhookLimitChargeByCardConfiguration;
+  limitChargeByCardConfiguration?: MerchantWebhookLimitChargeByCardConfiguration | null;
   /** 保護された返金アクションを進める前に確認を要求します。 */
   confirmationRequired?: boolean | null;
   /** 確認チェックの対象となる、通貨の最小単位による最小返金金額。 */
   minRefundThreshold?: number | null;
-  /** 売上履歴に基づく返金制限の設定。 */
-  limitRefundBySales?: MerchantWebhookLimitRefundBySalesConfiguration;
+  limitRefundBySales?: MerchantWebhookLimitRefundBySalesConfiguration | null;
   /** Properties the service sent or accepts beyond those declared. */
   additionalProperties?: Record<string, JsonValue>;
 };
@@ -51,12 +49,14 @@ export const merchantWebhookSecurityConfigurationSchema: Schema<MerchantWebhookS
       restrictIpAfterFailedCharge: s.optional(s.lazy(() => restrictIpAfterFailedChargeConfigSchema)),
       inspectSuspiciousLoginAfter: s.optionalNullable(s.string()),
       refundPercentLimit: s.optionalNullable(s.float64()),
-      limitChargeByCardConfiguration: s.optional(
+      limitChargeByCardConfiguration: s.optionalNullable(
         s.lazy(() => merchantWebhookLimitChargeByCardConfigurationSchema),
       ),
       confirmationRequired: s.optionalNullable(s.boolean()),
       minRefundThreshold: s.optionalNullable(s.int()),
-      limitRefundBySales: s.optional(s.lazy(() => merchantWebhookLimitRefundBySalesConfigurationSchema)),
+      limitRefundBySales: s.optionalNullable(
+        s.lazy(() => merchantWebhookLimitRefundBySalesConfigurationSchema),
+      ),
       _keysMap: {
         cardChargeCooldown: "card_charge_cooldown",
         subscriptionCooldown: "subscription_cooldown",

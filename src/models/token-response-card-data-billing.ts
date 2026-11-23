@@ -19,8 +19,7 @@ export type TokenResponseCardDataBilling = {
   country?: string | null;
   /** 郵便番号。 */
   zip?: string | null;
-  /** トークンレスポンス用の電話番号スキーマ。 */
-  phoneNumber?: TokenResponsePhoneNumber;
+  phoneNumber?: TokenResponsePhoneNumber | null;
   /** Properties the service sent or accepts beyond those declared. */
   additionalProperties?: Record<string, JsonValue>;
 };
@@ -34,7 +33,7 @@ export const tokenResponseCardDataBillingSchema: Schema<TokenResponseCardDataBil
       city: s.optionalNullable(s.string()),
       country: s.optionalNullable(s.string()),
       zip: s.optionalNullable(s.string()),
-      phoneNumber: s.optional(s.lazy(() => tokenResponsePhoneNumberSchema)),
+      phoneNumber: s.optionalNullable(s.lazy(() => tokenResponsePhoneNumberSchema)),
       _keysMap: {
         phoneNumber: "phone_number",
       },

@@ -7,7 +7,7 @@
 > Source: [Charges](src/resources/charges.ts)
 
 <details>
-<summary><code>captureCharge(request: Charges.CaptureChargeRequest, options?: RequestOptions): ApiPromise&lt;Record&lt;string, unknown&gt;, Charges.CaptureChargeError&gt;</code></summary>
+<summary><code>captureCharge(request: Charges.CaptureChargeRequest, options?: RequestOptions): ApiPromise&lt;undefined, Charges.CaptureChargeError&gt;</code></summary>
 
 <dl>
 <dd>
@@ -29,13 +29,12 @@
 
 ```ts
 try {
-  const response = await client.charges.captureCharge({
+  await client.charges.captureCharge({
     storeId: "0cab399b-5621-425b-993b-f8507eba1e78",
     id: "c4e87129-cad4-47fb-8ded-b4c0a4ae0dd4",
     idempotencyKey: "f64be872-353d-4c3c-84cb-3dc617fe89f7",
     body: { amount: 1000, currency: "JPY" },
   });
-  // TODO: Handle 'response' of type Record<string, unknown>
 } catch (err) {
   // TODO: Handle 'err' of type Charges.CaptureChargeError, discriminated with 'err.payload.kind'
 }
@@ -60,7 +59,7 @@ const result = await client.charges
   .asApiResult();
 // TODO: Use 'result.status' and 'result.headers' to read the raw response status and headers
 if (result.ok) {
-  // TODO: Use 'result.value' of type Record<string, unknown>
+  // TODO: The call succeeded and resolves to no body
 } else {
   // TODO: Handle 'result', discriminated with 'result.payload.kind'
 }
@@ -91,12 +90,12 @@ if (result.ok) {
 
 **Direct**: `await client.charges.captureCharge(request)`
 
-- **OnSuccess**: <code>Record&lt;string, unknown&gt;</code>
+- **OnSuccess**: <code>undefined</code>
 - **OnError**: throws <code>[Charges.CaptureChargeError](src/resources/charges.ts)</code>, with `err.payload` discriminated on `kind`
 
 **As ApiResult**: `await client.charges.captureCharge(request).asApiResult()`
 
-- **OnSuccess**: <code>[ApiResult](src/core/api-promise.ts)&lt;Record&lt;string, unknown&gt;, Charges.CaptureChargeError&gt;</code>, with `result.value` of type <code>Record&lt;string, unknown&gt;</code>
+- **OnSuccess**: <code>[ApiResult](src/core/api-promise.ts)&lt;undefined, Charges.CaptureChargeError&gt;</code>, with `result.value` of type <code>undefined</code>
 - **OnError**: `result.payload` discriminated on `kind`, with `result.message`
 
 **Thrown**: <code>[UnivapayPublicApiError](src/core/errors.ts)</code> on any operational failure — a caller abort and a programmer error stay outside the family and reach you raw

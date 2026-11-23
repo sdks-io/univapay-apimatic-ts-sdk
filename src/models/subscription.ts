@@ -61,8 +61,7 @@ export type Subscription = {
   createdOn?: Date;
   /** 定期課金の決済に適用される3Dセキュアの設定とリダイレクト情報。 */
   threeDs?: SubscriptionThreeDs;
-  /** 定期課金周期のスキーマ。 */
-  period?: SubscriptionPeriod;
+  period?: SubscriptionPeriod | null;
   /**
    * カスタムの請求頻度を表す ISO-8601 期間形式（例：P3D, P1M）。固定の期間プリセットではなくカスタムのサイクル長を使用する定期課金の場合、`period`
    * の代わりに返されます。`period` とは互いに排他的であり、どちらか一方のみが存在します。
@@ -110,7 +109,7 @@ const subscriptionProperties: s.Shape<Subscription> = {
   mode: s.optional(s.lazy(() => chargeModeSchema)),
   createdOn: s.optional(s.dateTime()),
   threeDs: s.optional(s.lazy(() => subscriptionThreeDsInternalSchema)),
-  period: s.optional(s.lazy(() => subscriptionPeriodSchema)),
+  period: s.optionalNullable(s.lazy(() => subscriptionPeriodSchema)),
   cyclicalPeriod: s.optionalNullable(s.string()),
   nextPayment: s.optional(s.lazy(() => subscriptionNextPaymentSchema)),
   cyclesLeft: s.optionalNullable(s.int()),

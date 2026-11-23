@@ -10,8 +10,9 @@ import {
 } from "./binary.js";
 import { EncodeError } from "./errors.js";
 import type { Param, ParamValue, StyledParam } from "./param-value.js";
-import { flattenParams, isScalar, jsonValue, scalar } from "./param-value.js";
+import { flatten, isScalar, jsonValue, scalar } from "./param-value.js";
 import { formString } from "./params.js";
+import { uuid } from "./uuid.js";
 import { encodeEntry, type Entry } from "./validation/schema.js";
 import { SchemaError } from "./validation/schema-error.js";
 
@@ -187,7 +188,7 @@ function buildMultipart(
   }
   if (allBuffered(entries)) return { body: toFormData(entries) };
 
-  const boundary = `----${crypto.randomUUID()}`;
+  const boundary = `----${uuid()}`;
   return {
     body: frameMultipart(entries, boundary, signal),
     contentType: `multipart/form-data; boundary=${boundary}`,
@@ -198,7 +199,7 @@ function buildMultipart(
 function partEntries(part: MultipartPart): readonly MultipartEntry[] {
   switch (part.kind) {
     case "text":
-      return flattenParams([part]).map(([name, value]) => ({ kind: "text", name, value }));
+      return flatten([part]).map(([name, value]) => ({ kind: "text", name, value }));
     case "json": {
       const encoded = encodeEntry(part.schema, part.value);
       const entries: MultipartEntry[] = [];

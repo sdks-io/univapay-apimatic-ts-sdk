@@ -10,8 +10,7 @@ import {
 export type TokenResponseCardDataThreeDs = {
   /** 有効化フラグの値。 */
   enabled?: boolean;
-  /** トークンレスポンスのカードデータ3Dセキュアステータスのスキーマ。 */
-  status?: TokenResponseCardDataThreeDsStatus;
+  status?: TokenResponseCardDataThreeDsStatus | null;
   /** リダイレクト先エンドポイント URL。 */
   redirectEndpoint?: string | null;
   /** リダイレクト識別子。 */
@@ -26,7 +25,7 @@ export type TokenResponseCardDataThreeDs = {
 
 const tokenResponseCardDataThreeDsProperties: s.Shape<TokenResponseCardDataThreeDs> = {
   enabled: s.optional(s.boolean()),
-  status: s.optional(s.lazy(() => tokenResponseCardDataThreeDsStatusSchema)),
+  status: s.optionalNullable(s.lazy(() => tokenResponseCardDataThreeDsStatusSchema)),
   redirectEndpoint: s.optionalNullable(s.string()),
   redirectId: s.optionalNullable(s.string()),
   exempted: s.optional(s.boolean()),

@@ -17,8 +17,7 @@ export type MerchantWebhookInstallmentPlanConfiguration = {
   cardProcessor?: CardProcessorInstallmentConfig;
   /** 分割払いプランを使用できる決済手段の種類。 */
   supportedPaymentTypes?: string[] | null;
-  /** バックエンド設定モデルによってシリアライズされた金額オブジェクト。 */
-  minChargeAmount?: MerchantWebhookMoneyAmount;
+  minChargeAmount?: MerchantWebhookMoneyAmount | null;
   /** 分割払い精算のために許容される最大支払い遅延期間。 */
   maxPayoutPeriod?: string | null;
   /** 分割払いの利用をプロセッサ対応フローのみに制限します。 */
@@ -33,7 +32,7 @@ export const merchantWebhookInstallmentPlanConfigurationSchema: Schema<MerchantW
       enabled: s.optionalNullable(s.boolean()),
       cardProcessor: s.optional(s.lazy(() => cardProcessorInstallmentConfigSchema)),
       supportedPaymentTypes: s.optionalNullable(s.array(s.string())),
-      minChargeAmount: s.optional(s.lazy(() => merchantWebhookMoneyAmountSchema)),
+      minChargeAmount: s.optionalNullable(s.lazy(() => merchantWebhookMoneyAmountSchema)),
       maxPayoutPeriod: s.optionalNullable(s.string()),
       onlyWithProcessor: s.optionalNullable(s.boolean()),
       _keysMap: {

@@ -11,7 +11,7 @@ import { subscriptionInternalSchema, subscriptionSchema, type Subscription } fro
  */
 export type SubscriptionWebhookEvent = {
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /**
    * イベントタイプの識別子 —
    * `subscription_created`、`subscription_payment`、`subscription_completed`、`subscription_failure`、`subscription_canceled`、または
@@ -21,16 +21,16 @@ export type SubscriptionWebhookEvent = {
   /** 定期課金オブジェクト。定期的な決済スケジュールを表します。 */
   data?: Subscription;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /** Properties the service sent or accepts beyond those declared. */
   additionalProperties?: Record<string, JsonValue>;
 };
 
 const subscriptionWebhookEventProperties: s.Shape<SubscriptionWebhookEvent> = {
-  id: s.string(),
+  id: s.optional(s.string()),
   event: subscriptionEventSchema,
   data: s.optional(s.lazy(() => subscriptionInternalSchema)),
-  createdOn: s.dateTime(),
+  createdOn: s.optional(s.dateTime()),
   _keysMap: {
     createdOn: "created_on",
   },

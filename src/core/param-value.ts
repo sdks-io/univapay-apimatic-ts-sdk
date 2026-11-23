@@ -1,6 +1,6 @@
 import { encodeEntry, type Entry } from "./validation/schema.js";
 
-export type ParamStyle = "plain" | "indexed" | "unindexed" | "csv" | "tsv" | "psv";
+export type ParamStyle = "plain" | "indexed" | "unindexed" | "csv" | "ssv" | "tsv" | "psv";
 
 export type ParamValue =
   | string
@@ -12,71 +12,121 @@ export type ParamValue =
   | readonly ParamValue[]
   | { readonly [key: string]: ParamValue };
 
-export type Param<Name extends string = string> = {
-  readonly name: Name;
+export type Param = {
+  readonly name: string;
   readonly value: unknown;
   readonly schema: Entry<unknown>;
 };
 
-export type StyledParam = Param & { readonly style?: ParamStyle | undefined };
+export type StyledParam = {
+  readonly name?: string;
+  readonly value: unknown;
+  readonly schema: Entry<unknown>;
+  readonly style?: ParamStyle | undefined;
+};
 
 export type ParamPair = readonly [name: string, value: string];
+
+type ParamField = {
+  readonly key: string;
+  readonly items: readonly string[];
+  readonly separator: string;
+};
 
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 export function flattenValue(value: ParamValue): string[] {
   if (value === undefined || value === null) return [];
-  if (isScalar(value)) return [scalar(value)];
-  if (!Array.isArray(value)) return [jsonValue(value)];
-
-  const folded: string[] = [];
-  for (const element of value) {
-    if (element === undefined || element === null) folded.push("");
-    else if (isScalar(element)) folded.push(scalar(element));
-    else return [jsonValue(value)];
+  if (isList(value) && value.every((element) => element === null || typeof element !== "object")) {
+    return value.map(itemText);
   }
-  return folded;
+  return [itemText(value)];
 }
 
-export function encodedParam(source: Param): ParamValue {
+export function encodedParam(source: StyledParam): ParamValue {
   return encodeEntry(source.schema, source.value) as ParamValue;
 }
 
-export function flattenParams(sources?: ReadonlyArray<StyledParam>): ParamPair[] {
-  return (sources ?? []).flatMap((source) =>
-    flattenParam(source.name, encodedParam(source), source.style ?? "plain"),
-  );
+export function flatten(
+  sources: readonly StyledParam[],
+  join: (items: readonly string[], separator: string) => string = (items, separator) => items.join(separator),
+): ParamPair[] {
+  return sources
+    .flatMap(({ name, style = "plain", ...source }) =>
+      name === undefined
+        ? flattenExploded(encodedParam(source), style)
+        : flattenParam(name, encodedParam(source), style),
+    )
+    .map(({ key, items, separator }): ParamPair => [key, join(items, separator)]);
 }
 
-function flattenParam(key: string, value: ParamValue, style: ParamStyle): ParamPair[] {
+function flattenExploded(value: ParamValue, style: ParamStyle): ParamField[] {
   if (value === undefined || value === null) return [];
-  if (isScalar(value)) return [[key, scalar(value)]];
-  if (Array.isArray(value)) return flattenArray(key, value, style);
-  return Object.entries(value).flatMap(([sub, subValue]) => flattenParam(`${key}[${sub}]`, subValue, style));
+  if (isScalar(value) || isList(value)) throw new TypeError("A param with no name must hold an object.");
+  return Object.entries(value).flatMap(([key, property]) => flattenParam(key, property, style));
 }
 
-function flattenArray(key: string, values: readonly ParamValue[], style: ParamStyle): ParamPair[] {
-  const present = values.filter((value) => value !== undefined && value !== null);
+function flattenParam(key: string, value: ParamValue, style: ParamStyle): ParamField[] {
+  if (value === undefined || value === null) return [];
+  if (isScalar(value)) return [{ key, items: [scalar(value)], separator: "" }];
   switch (style) {
     case "plain":
-      return present.flatMap((value) => flattenParam(key, value, style));
+      return isList(value)
+        ? present(value).flatMap((item) => flattenParam(key, item, style))
+        : bracketed(key, value, style);
     case "indexed":
-      return values.flatMap((value, index) => flattenParam(`${key}[${index}]`, value, style));
+      return isList(value)
+        ? value.flatMap((item, index) => flattenParam(`${key}[${index}]`, item, style))
+        : bracketed(key, value, style);
     case "unindexed":
-      return present.flatMap((value) => flattenParam(`${key}[]`, value, style));
+      return isList(value)
+        ? present(value).flatMap((item) => flattenParam(`${key}[]`, item, style))
+        : bracketed(key, value, style);
     case "csv":
-      return [joined(key, values, ",")];
+      return joined(key, value, ",");
+    case "ssv":
+      return joined(key, value, " ");
     case "tsv":
-      return [joined(key, values, "\t")];
+      return joined(key, value, "\t");
     case "psv":
-      return [joined(key, values, "|")];
+      return joined(key, value, "|");
     default:
       return unknownStyle(style);
   }
 }
 
-function joined(key: string, values: readonly ParamValue[], separator: string): ParamPair {
-  return [key, flattenValue(values).join(separator)];
+function bracketed(
+  key: string,
+  value: { readonly [key: string]: ParamValue },
+  style: ParamStyle,
+): ParamField[] {
+  return Object.entries(value).flatMap(([sub, subValue]) => flattenParam(`${key}[${sub}]`, subValue, style));
+}
+
+function joined(
+  key: string,
+  value: readonly ParamValue[] | { readonly [key: string]: ParamValue },
+  separator: string,
+): ParamField[] {
+  const items = isList(value)
+    ? value.map(itemText)
+    : Object.entries(value).flatMap(([sub, subValue]) =>
+        subValue === undefined || subValue === null ? [] : [sub, itemText(subValue)],
+      );
+  return items.length === 0 ? [] : [{ key, items, separator }];
+}
+
+function present(values: readonly ParamValue[]): ParamValue[] {
+  return values.filter((value) => value !== undefined && value !== null);
+}
+
+function isList(value: ParamValue): value is readonly ParamValue[] {
+  return Array.isArray(value);
+}
+
+function itemText(value: ParamValue): string {
+  if (value === undefined || value === null) return "";
+  return isScalar(value) ? scalar(value) : jsonValue(value);
 }
 
 function unknownStyle(style: never): never {

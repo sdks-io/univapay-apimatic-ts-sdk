@@ -1,6 +1,7 @@
 import type { RequestBody } from "./request-body.js";
 import type { RequestRetryOptions } from "./retry.js";
 import type { RequestLoggingOptions } from "./logging.js";
+import type { HookOptions } from "./hooks.js";
 import type { ResolvedCoreClientOptions } from "./client-options.js";
 import type { StyledParam, Param, ParamPair } from "./param-value.js";
 
@@ -12,7 +13,8 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | 
  *
  * @remarks
  * Credentials and the server are configured once on the client rather than per call. Three fields
- * of the retry policy and the log level are the two things a single call may shape for itself.
+ * of the retry policy, the log level and its own hooks are what a single call may shape for
+ * itself.
  */
 export type RequestOptions = {
   /** Cancels the call. Aborting rejects the returned promise with the signal's own `reason`. */
@@ -44,6 +46,9 @@ export type RequestOptions = {
    * value that is not a level is dropped and the call logs under the client's settings.
    */
   logging?: RequestLoggingOptions;
+
+  /** Hooks for this call alone, run after the client's. See {@link HookOptions}. */
+  hooks?: HookOptions;
 };
 
 export type RawClientOptions = ResolvedCoreClientOptions & {

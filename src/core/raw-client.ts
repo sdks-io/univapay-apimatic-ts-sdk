@@ -10,7 +10,12 @@ import { RetryPolicy } from "./retry.js";
 import { UrlBuilder } from "./url.js";
 import { HeadersBuilder } from "./headers.js";
 import { HttpLogger } from "./http-logger.js";
+import { HookRunner } from "./hooks.js";
 import { authenticateRequest } from "./auth/schemes.js";
+
+// Never read. An entry keeps the Request alive as long as its Response body, so the caller's abort
+// still reaches a body that is being read.
+const sentRequests = new WeakMap<ReadableStream, readonly Request[]>();
 
 export class RawClient {
   readonly #config: RawClientOptions;
@@ -88,6 +93,12 @@ export class RawClient {
     );
     const headers = this.#headersBuilder.build(apiRequest, uri, body);
     const policy = new RetryPolicy(options?.retry, this.#config.retry);
+    const hooks = new HookRunner(
+      options?.hooks,
+      this.#config.hooks,
+      { method: apiRequest.method, uri, options },
+      callerSignal,
+    );
     const response = await policy.execute(
       apiRequest.method,
       callerSignal,
@@ -119,13 +130,16 @@ export class RawClient {
           );
         }
 
-        const request = new Request(authenticated.url, {
-          method: apiRequest.method,
-          headers: authenticated.headers,
-          body: body.body,
-          signal,
-          ...(isStreaming ? { duplex: "half", window: null, redirect: "error" } : {}),
-        });
+        const requests = await hooks.beforeRequest(
+          new Request(authenticated.url, {
+            method: apiRequest.method,
+            headers: authenticated.headers,
+            body: body.body,
+            signal,
+            ...(isStreaming ? { duplex: "half", window: null, redirect: "error" } : {}),
+          }),
+        );
+        const request = requests[0];
         await logger.logRequest(request);
 
         const timer = startTimeout(timeoutController, timeout, apiRequest.method, uri);
@@ -158,11 +172,13 @@ export class RawClient {
         };
         try {
           logger.logResponse(response);
+          if (response.status === 401) apiRequest.auth.invalidate?.();
+          response = await hooks.afterResponse(response);
         } catch (err) {
           discard();
           throw err;
         }
-        if (response.status === 401) apiRequest.auth.invalidate?.();
+        if (response.body !== null) sentRequests.set(response.body, requests);
         return { kind: "response", response, isStreaming, discard };
       },
     );

@@ -9,16 +9,16 @@ import {
 
 /**
  * トランザクショントークンのライフサイクルイベント用のウェブフックエンベロープ。トークン作成時は `token_created`、メタデータ変更時は
- * `token_updated`、3Dセキュアデータ変更時は `token_three_d_s_updated`、CVV 認証変更時は `token_cvv_auth_updated`、CVV
+ * `token_updated`、3Dセキュアデータ変更時は `token_three_ds_updated`、CVV 認証変更時は `token_cvv_auth_updated`、CVV
  * 認証チェック変更時は `token_cvv_auth_check_updated`、トークン置き換え時（例：カード更新後）は `token_replaced`、リカーリングトークン削除時は
  * `recurring_token_deleted` で発火します。`data` フィールドには、イベント発生時点の TransactionToken オブジェクト全体が含まれます。
  */
 export type TokenWebhookEvent = {
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /**
    * イベントタイプの識別子 —
-   * `token_created`、`token_updated`、`token_three_d_s_updated`、`token_cvv_auth_updated`、`token_cvv_auth_check_updated`、`token_replaced`、または
+   * `token_created`、`token_updated`、`token_three_ds_updated`、`token_cvv_auth_updated`、`token_cvv_auth_check_updated`、`token_replaced`、または
    * `recurring_token_deleted`。
    */
   event: TokenEvent;
@@ -28,16 +28,16 @@ export type TokenWebhookEvent = {
    */
   data?: TransactionToken;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /** Properties the service sent or accepts beyond those declared. */
   additionalProperties?: Record<string, JsonValue>;
 };
 
 const tokenWebhookEventProperties: s.Shape<TokenWebhookEvent> = {
-  id: s.string(),
+  id: s.optional(s.string()),
   event: tokenEventSchema,
   data: s.optional(s.lazy(() => transactionTokenInternalSchema)),
-  createdOn: s.dateTime(),
+  createdOn: s.optional(s.dateTime()),
   _keysMap: {
     createdOn: "created_on",
   },

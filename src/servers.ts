@@ -9,14 +9,8 @@ export type Servers = {
 };
 
 const serverSchemas = {
-  default: {
-    baseUrl: s.of(s.defaulted(s.string(), "{baseUrl}")),
-    baseUrl2: s.of(s.defaulted(s.string(), "https://api.gyro-n.money")),
-  },
-  directDebit: {
-    baseUrl: s.of(s.defaulted(s.string(), "{directDebitBaseUrl}")),
-    directDebitBaseUrl: s.of(s.defaulted(s.string(), "https://staging-direct-debit.gopay-services.com")),
-  },
+  default: { baseUrl: s.of(s.defaulted(s.string(), "https://api.univapay.com")) },
+  directDebit: { baseUrl: s.of(s.defaulted(s.string(), "https://direct-debit.gopay-services.com")) },
 };
 
 export function buildServers(options: ClientOptions): Servers {
@@ -31,19 +25,9 @@ export function buildServers(options: ClientOptions): Servers {
 }
 
 function defaultServer(options: ClientOptions): ServerBase {
-  return {
-    baseUrl: serverSchemas.default.baseUrl.decode(options.serverOptions?.default?.baseUrl),
-    variables: { baseUrl: serverSchemas.default.baseUrl2.decode(options.serverOptions?.default?.baseUrl2) },
-  };
+  return { baseUrl: serverSchemas.default.baseUrl.decode(options.serverOptions?.default?.baseUrl) };
 }
 
 function directDebitServer(options: ClientOptions): ServerBase {
-  return {
-    baseUrl: serverSchemas.directDebit.baseUrl.decode(options.serverOptions?.directDebit?.baseUrl),
-    variables: {
-      directDebitBaseUrl: serverSchemas.directDebit.directDebitBaseUrl.decode(
-        options.serverOptions?.directDebit?.directDebitBaseUrl,
-      ),
-    },
-  };
+  return { baseUrl: serverSchemas.directDebit.baseUrl.decode(options.serverOptions?.directDebit?.baseUrl) };
 }

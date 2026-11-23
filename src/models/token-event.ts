@@ -3,13 +3,13 @@ import type { EnumSchema } from "../core/validation/schema.js";
 
 /**
  * イベントタイプの識別子 —
- * `token_created`、`token_updated`、`token_three_d_s_updated`、`token_cvv_auth_updated`、`token_cvv_auth_check_updated`、`token_replaced`、または
+ * `token_created`、`token_updated`、`token_three_ds_updated`、`token_cvv_auth_updated`、`token_cvv_auth_check_updated`、`token_replaced`、または
  * `recurring_token_deleted`。
  */
 export const TokenEvent = {
   TokenCreated: "token_created",
   TokenUpdated: "token_updated",
-  TokenThreeDsUpdated: "token_three_d_s_updated",
+  TokenThreeDsUpdated: "token_three_ds_updated",
   TokenCvvAuthUpdated: "token_cvv_auth_updated",
   TokenCvvAuthCheckUpdated: "token_cvv_auth_check_updated",
   TokenReplaced: "token_replaced",

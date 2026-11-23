@@ -26,7 +26,7 @@ export type CheckoutCardConfiguration = {
   /** カード決済の送信元 IP ジオロケーションによって許可される ISO 3166-1 alpha-2 国コード。制限がない場合は `null` になります。 */
   allowedCountriesByIp?: string[] | null;
   /** 主要営業国以外で発行されたカード（海外カード）を許可するかどうか。 */
-  foreignCardsAllowed?: boolean;
+  foreignCardsAllowed?: boolean | null;
   /** 過去にトランザクション履歴のない消費者メールアドレスからのカード課金を拒否するかどうか。設定されていない場合は `null` になります。 */
   failOnNewEmail?: boolean | null;
   /** カードごとの利用上限額。上限が設定されていない場合は `null` になります。 */
@@ -58,7 +58,7 @@ export const checkoutCardConfigurationSchema: Schema<CheckoutCardConfiguration> 
       onlyDirectCurrency: s.optional(s.boolean()),
       forbiddenCardBrands: s.optionalNullable(s.array(s.string())),
       allowedCountriesByIp: s.optionalNullable(s.array(s.string())),
-      foreignCardsAllowed: s.optional(s.boolean()),
+      foreignCardsAllowed: s.optionalNullable(s.boolean()),
       failOnNewEmail: s.optionalNullable(s.boolean()),
       cardLimit: s.optionalNullable(s.lazy(() => cardLimitSchema)),
       allowEmptyCvv: s.optionalNullable(s.boolean()),

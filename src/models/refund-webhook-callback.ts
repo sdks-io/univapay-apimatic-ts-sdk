@@ -8,9 +8,9 @@ export type RefundWebhookCallback = {
   /** イベントタイプの識別子 — このコールバックでは常に `refund_finished` になります。 */
   event?: RefundEvent;
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /** 課金に対して発行された返金を表します。 */
   data?: Refund;
   /** Properties the service sent or accepts beyond those declared. */
@@ -20,8 +20,8 @@ export type RefundWebhookCallback = {
 export const refundWebhookCallbackSchema: Schema<RefundWebhookCallback> = s.object<RefundWebhookCallback>(
   {
     event: s.optional(s.lazy(() => refundEventSchema)),
-    id: s.string(),
-    createdOn: s.dateTime(),
+    id: s.optional(s.string()),
+    createdOn: s.optional(s.dateTime()),
     data: s.optional(s.lazy(() => refundSchema)),
     _keysMap: {
       createdOn: "created_on",

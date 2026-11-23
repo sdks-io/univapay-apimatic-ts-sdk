@@ -5,7 +5,7 @@ import type { EnumSchema } from "../core/validation/schema.js";
 export const WebhookTrigger = {
   TokenCreated: "token_created",
   TokenUpdated: "token_updated",
-  TokenThreeDsUpdated: "token_three_d_s_updated",
+  TokenThreeDsUpdated: "token_three_ds_updated",
   TokenCvvAuthUpdated: "token_cvv_auth_updated",
   TokenCvvAuthCheckUpdated: "token_cvv_auth_check_updated",
   TokenReplaced: "token_replaced",

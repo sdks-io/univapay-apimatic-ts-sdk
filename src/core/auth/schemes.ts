@@ -1,5 +1,5 @@
 import type { AuthParams, AuthScheme, HttpMethod } from "../api-request.js";
-import type { BasicAuthCredentials, TokenProvider } from "./credentials.js";
+import type { BasicAuthCredentials, SecretProvider } from "./credentials.js";
 import type { RequestHeaders } from "../headers.js";
 import type { RequestUrl } from "../url.js";
 import type { HttpLogger } from "../http-logger.js";
@@ -12,7 +12,7 @@ export const noneAuth: AuthScheme = {
   hasCredentials: () => false,
 };
 
-export function bearerAuth(token: TokenProvider | undefined): AuthScheme {
+export function bearerAuth(token: SecretProvider | undefined): AuthScheme {
   return {
     async resolve(signal) {
       const value = await resolveToken(token, signal);
@@ -35,7 +35,7 @@ export function basicAuth(credentials: BasicAuthCredentials | undefined): AuthSc
   };
 }
 
-export function apiKeyHeaderAuth(config: { name: string; token: TokenProvider | undefined }): AuthScheme {
+export function apiKeyHeaderAuth(config: { name: string; token: SecretProvider | undefined }): AuthScheme {
   return {
     async resolve(signal) {
       const value = await resolveToken(config.token, signal);
@@ -45,7 +45,7 @@ export function apiKeyHeaderAuth(config: { name: string; token: TokenProvider | 
   };
 }
 
-export function apiKeyQueryAuth(config: { name: string; token: TokenProvider | undefined }): AuthScheme {
+export function apiKeyQueryAuth(config: { name: string; token: SecretProvider | undefined }): AuthScheme {
   return {
     async resolve(signal) {
       const value = await resolveToken(config.token, signal);
@@ -56,7 +56,7 @@ export function apiKeyQueryAuth(config: { name: string; token: TokenProvider | u
   };
 }
 
-export function apiKeyCookieAuth(config: { name: string; token: TokenProvider | undefined }): AuthScheme {
+export function apiKeyCookieAuth(config: { name: string; token: SecretProvider | undefined }): AuthScheme {
   return {
     async resolve(signal) {
       const value = await resolveToken(config.token, signal);
@@ -164,7 +164,7 @@ export function base64(bytes: Uint8Array): string {
 }
 
 async function resolveToken(
-  token: TokenProvider | undefined,
+  token: SecretProvider | undefined,
   signal: AbortSignal,
 ): Promise<string | undefined> {
   const value: unknown = typeof token === "function" ? await token(signal) : token;
@@ -174,7 +174,7 @@ async function resolveToken(
   return present(value);
 }
 
-function hasToken(token: TokenProvider | undefined): boolean {
+function hasToken(token: SecretProvider | undefined): boolean {
   return typeof token === "function" || present(token) !== undefined;
 }
 

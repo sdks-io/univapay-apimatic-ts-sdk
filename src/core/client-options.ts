@@ -1,6 +1,7 @@
 import { ConfigurationError } from "./errors.js";
 import { buildLoggingOptions, type LoggingOptions, type ResolvedLoggingOptions } from "./logging.js";
 import { buildRetryOptions, type RetryOptions, type ResolvedRetryOptions } from "./retry.js";
+import type { HookOptions } from "./hooks.js";
 import {
   buildEventStreamOptions,
   type EventStreamOptions,
@@ -43,7 +44,14 @@ export type CoreClientOptions = {
   readonly logging?: LoggingOptions | undefined;
 
   /**
-   * Replaces the global `fetch`. The one extension point for proxying or mocking.
+   * Hooks run around every HTTP request this client makes. None by default, see
+   * {@link HookOptions}.
+   */
+  readonly hooks?: HookOptions | undefined;
+
+  /**
+   * Replaces the global `fetch`, for proxying or mocking. To watch a call or add a header, use
+   * `hooks`.
    *
    * @remarks
    * It is called with one argument, the attempt's `Request`, and no `init`. A replacement must
@@ -59,6 +67,7 @@ export type ResolvedCoreClientOptions = {
   readonly retry: ResolvedRetryOptions;
   readonly eventStream: ResolvedEventStreamOptions;
   readonly logging: ResolvedLoggingOptions;
+  readonly hooks?: HookOptions | undefined;
   readonly fetch: FetchLike;
 };
 
@@ -85,6 +94,7 @@ export function buildCoreClientOptions(
     retry: buildRetryOptions(options.retry),
     eventStream: buildEventStreamOptions(options.eventStream),
     logging: buildLoggingOptions(options.logging, loggingEnvironmentVariable),
+    hooks: options.hooks,
     fetch: fetchImpl,
   };
 }

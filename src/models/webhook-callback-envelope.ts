@@ -5,11 +5,11 @@ import { webhookTriggerSchema, type WebhookTrigger } from "./webhook-trigger.js"
 /** すべてのイベントでウェブフック URL に POST 送信される共通のラッパー。`data` フィールドには、イベントタイプに関連するドメインオブジェクトが含まれます。 */
 export type WebhookCallbackEnvelope = {
   /** このウェブフック配信の一意の ID。 */
-  id: string;
+  id?: string;
   /** ウェブフック通知をトリガーするイベントタイプ。 */
   event: WebhookTrigger;
   /** イベントがトリガーされたタイムスタンプ。 */
-  createdOn: Date;
+  createdOn?: Date;
   /** Properties the service sent or accepts beyond those declared. */
   additionalProperties?: Record<string, JsonValue>;
 };
@@ -17,9 +17,9 @@ export type WebhookCallbackEnvelope = {
 export const webhookCallbackEnvelopeSchema: Schema<WebhookCallbackEnvelope> =
   s.object<WebhookCallbackEnvelope>(
     {
-      id: s.string(),
+      id: s.optional(s.string()),
       event: webhookTriggerSchema,
-      createdOn: s.dateTime(),
+      createdOn: s.optional(s.dateTime()),
       _keysMap: {
         createdOn: "created_on",
       },

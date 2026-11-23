@@ -16,7 +16,7 @@ export type TransactionTokenListItem = {
   /** 店舗の表示名。 */
   storeName?: string;
   /** 消費者のメールアドレス。 */
-  email?: string;
+  email?: string | null;
   /** 決済手段のタイプ。 */
   paymentType?: string;
   /** リソースがアクティブかどうか。 */
@@ -42,7 +42,7 @@ export const transactionTokenListItemSchema: Schema<TransactionTokenListItem> =
       storeId: s.optional(s.string()),
       merchantName: s.optional(s.string()),
       storeName: s.optional(s.string()),
-      email: s.optional(s.string()),
+      email: s.optionalNullable(s.string()),
       paymentType: s.optional(s.string()),
       active: s.optional(s.boolean()),
       mode: s.optional(s.string()),
