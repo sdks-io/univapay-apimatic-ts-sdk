@@ -6,7 +6,7 @@ export type TokenResponseBankTransferData = {
   /** 銀行ブランド識別子（例：'aozora_bank'）。 */
   brand?: string;
   /** ISO 8601 期間形式（例：'PT168H'）。 */
-  expirationPeriod?: string;
+  expirationPeriod?: string | null;
   /** 有効期限に適用されるタイムシフト。通常、特定のタイムゾーンにおける一日の終わりに設定するために使用されます（例：'23:59:59+09:00'）。 */
   expirationTimeShift?: string | null;
   /** 金融機関コード。 */
@@ -29,7 +29,7 @@ export const tokenResponseBankTransferDataSchema: Schema<TokenResponseBankTransf
   s.object<TokenResponseBankTransferData>(
     {
       brand: s.optional(s.string()),
-      expirationPeriod: s.optional(s.string()),
+      expirationPeriod: s.optionalNullable(s.string()),
       expirationTimeShift: s.optionalNullable(s.string()),
       bankCode: s.optionalNullable(s.string()),
       bankName: s.optionalNullable(s.string()),

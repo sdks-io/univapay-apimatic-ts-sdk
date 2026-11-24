@@ -16,7 +16,7 @@ export type TokenResponseKonbiniData = {
   /** 基本コンビニデータ（コンビニエンスストア一覧）のスキーマ。 */
   convenienceStore?: BaseKonbiniDataConvenienceStore;
   /** ISO-8601 期間形式（例：'P7D'）。デフォルトは30日です。 */
-  expirationPeriod?: string;
+  expirationPeriod?: string | null;
   /** 有効期限に適用されるタイムシフト。通常、特定のタイムゾーンにおける一日の終わりに設定するために使用されます（例：'23:59:59.999999+09:00'）。 */
   expirationTimeShift?: string | null;
   /** トークンレスポンス用の電話番号スキーマ。 */
@@ -30,7 +30,7 @@ export const tokenResponseKonbiniDataSchema: Schema<TokenResponseKonbiniData> =
     {
       customerName: s.optional(s.string()),
       convenienceStore: s.optional(s.lazy(() => baseKonbiniDataConvenienceStoreSchema)),
-      expirationPeriod: s.optional(s.string()),
+      expirationPeriod: s.optionalNullable(s.string()),
       expirationTimeShift: s.optionalNullable(s.string()),
       phoneNumber: s.optional(s.lazy(() => tokenResponsePhoneNumberSchema)),
       _keysMap: {

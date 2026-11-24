@@ -12,7 +12,7 @@ export type BaseKonbiniData = {
   /** 基本コンビニデータ（コンビニエンスストア一覧）のスキーマ。 */
   convenienceStore?: BaseKonbiniDataConvenienceStore;
   /** ISO-8601 期間形式（例：'P7D'）。デフォルトは30日です。 */
-  expirationPeriod?: string;
+  expirationPeriod?: string | null;
   /** Properties the service sent or accepts beyond those declared. */
   additionalProperties?: Record<string, JsonValue>;
 };
@@ -21,7 +21,7 @@ export const baseKonbiniDataSchema: Schema<BaseKonbiniData> = s.object<BaseKonbi
   {
     customerName: s.optional(s.string()),
     convenienceStore: s.optional(s.lazy(() => baseKonbiniDataConvenienceStoreSchema)),
-    expirationPeriod: s.optional(s.string()),
+    expirationPeriod: s.optionalNullable(s.string()),
     _keysMap: {
       customerName: "customer_name",
       convenienceStore: "convenience_store",

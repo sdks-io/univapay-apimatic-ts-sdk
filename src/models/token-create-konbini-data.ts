@@ -17,7 +17,7 @@ export type TokenCreateKonbiniData = {
   /** 基本コンビニデータ（コンビニエンスストア一覧）のスキーマ。 */
   convenienceStore: BaseKonbiniDataConvenienceStore;
   /** ISO-8601 期間形式（例：'P7D'）。デフォルトは30日です。 */
-  expirationPeriod?: string;
+  expirationPeriod?: string | null;
   /** トークン作成用の電話番号スキーマ。 */
   phoneNumber: TokenCreatePhoneNumber;
   /** 有効期限のタイムシフト値。 */
@@ -29,7 +29,7 @@ export type TokenCreateKonbiniData = {
 const tokenCreateKonbiniDataProperties: s.Shape<TokenCreateKonbiniData> = {
   customerName: s.string(),
   convenienceStore: baseKonbiniDataConvenienceStoreSchema,
-  expirationPeriod: s.optional(s.string()),
+  expirationPeriod: s.optionalNullable(s.string()),
   phoneNumber: tokenCreatePhoneNumberInternalSchema,
   expirationTimeShift: s.optional(s.string()),
   _keysMap: {
