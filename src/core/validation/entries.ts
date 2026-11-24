@@ -50,6 +50,18 @@ export const unixSecondsDateTime = (): ZodMiniType<Date, number> =>
     encode: (date) => Math.floor(date.getTime() / 1000),
   }) as unknown as ZodMiniType<Date, number>;
 
+const DIGITS = /^\d+$/;
+
+/**
+ * An integer that may arrive as a string of digits. Only the OAuth2 token schemas use it: some
+ * providers send `expires_in` as `"3600"`, and a model's integer stays strict.
+ */
+export const intOrDigits = (): ZodMiniType<number, number> =>
+  zod.codec(zod.union([zod.number(), zod.string().check(zod.regex(DIGITS))]), zod.int(), {
+    decode: (value) => Number(value),
+    encode: (value) => value,
+  }) as unknown as ZodMiniType<number, number>;
+
 export const dateOnly = (): ZodMiniType<string, string> => zod.iso.date();
 
 const BYTES = zod.custom<Uint8Array>((value) => value instanceof Uint8Array);

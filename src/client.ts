@@ -65,7 +65,7 @@ export class UnivapayPublicApiClient {
 
   constructor(options: ClientOptions = {}) {
     this.#rawClient = new RawClient({
-      ...buildCoreClientOptions(options, "UNIVAPAY_PUBLIC_API_CLIENT_LOG"),
+      ...buildCoreClientOptions(options, "UNIVAPAY_PUBLIC_API_LOG"),
       defaultHeaders: [
         { name: "User-Agent", value: "UnivapayPublicApiClient/1.3.0 TypeScript", schema: s.string() },
         { name: "X-APIMatic-Lang", value: "TypeScript", schema: s.string() },

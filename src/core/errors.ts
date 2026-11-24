@@ -169,14 +169,17 @@ export class TimeoutError extends CoreErrorBase {
 }
 
 /**
- * A credential could not be obtained, so the call was never sent.
+ * A credential the call requires is not configured or could not be obtained, so the call was never
+ * sent.
  *
  * @remarks
- * Raised when the token exchange answered with an error status, returned a body that would not
- * decode, or could not be encoded, and when every branch of an `anyAuth` failed. `cause` carries
- * that failure, and the operation's retry loop never re-sends it: a refusal is not transient. A
- * dropped connection or a timeout during the exchange keeps its own kind instead, names the token
- * endpoint, and ends the call without the operation being sent.
+ * Raised before the send when a credential the operation requires is not configured, with a
+ * message naming the client options that would satisfy it. Raised too when the token exchange
+ * answered with an error status, returned a body that would not decode, or could not be encoded,
+ * when a credential function returned nothing, and when every branch of an `anyAuth` failed.
+ * `cause` carries that failure, and the operation's retry loop never re-sends it: a refusal is not
+ * transient. A dropped connection or a timeout during the exchange keeps its own kind instead,
+ * names the token endpoint, and ends the call without the operation being sent.
  *
  * `method` and `uri` name the operation you called; the token endpoint appears in the message
  * after them. A 401 answered by the operation itself is an `ApiError`, not this.

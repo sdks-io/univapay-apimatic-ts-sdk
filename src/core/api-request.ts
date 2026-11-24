@@ -77,10 +77,16 @@ export type AuthParams = {
   readonly cookies: readonly ParamPair[];
 };
 
+/**
+ * The credentials a call would still need before it can be sent, as alternatives: each one a list
+ * of the client options that would all have to be set. `[]` when nothing is missing.
+ */
+export type MissingCredentials = readonly (readonly string[])[];
+
 export type AuthScheme = {
   resolve(signal: AbortSignal): Promise<AuthParams> | AuthParams;
-  hasCredentials(): boolean;
-  invalidate?(): void;
+  missingCredentials(): MissingCredentials;
+  invalidate?(rejected: string | null): boolean;
 };
 
 export type ApiRequest = {

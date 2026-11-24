@@ -30,7 +30,8 @@ export type OAuthToken = {
 
   /**
    * Lifetime in seconds. RECOMMENDED, not required (RFC 6749 section 5.1) — a token with no
-   * `expiresIn` is treated as never expiring.
+   * `expiresIn` is treated as never expiring. A provider that sends it as a string of digits, such
+   * as `"3600"`, is read as the number.
    */
   expiresIn?: number;
 
@@ -41,7 +42,7 @@ export type OAuthToken = {
 export const oauthTokenSchema: Schema<OAuthToken> = s.object<OAuthToken>({
   accessToken: s.string(),
   tokenType: s.string(),
-  expiresIn: s.optional(s.int()),
+  expiresIn: s.optional(s.intOrDigits()),
   scope: s.optional(s.string()),
   _keysMap: {
     accessToken: "access_token",
@@ -54,23 +55,24 @@ export const oauthTokenSchema: Schema<OAuthToken> = s.object<OAuthToken>({
  * An OAuth 2.0 token response that may carry a refresh token.
  *
  * @remarks
- * Only the authorization-code grant issues one — RFC 6749 forbids it for the implicit grant and
- * says client-credentials SHOULD NOT issue one.
+ * The authorization-code and password grants may issue one — RFC 6749 forbids it for the implicit
+ * grant and says client-credentials SHOULD NOT issue one.
  */
 export type OAuthTokenRefreshable = OAuthToken & {
   /**
-   * Issued at the server's discretion (RFC 6749 sections 4.1.4 and 4.3.3). When a refresh response
-   * omits it, the previously issued one is carried forward.
+   * Issued at the server's discretion (RFC 6749 sections 4.1.4 and 4.3.3). A `null` means the same
+   * as leaving it out. When a refresh response omits it, the previously issued one is carried
+   * forward.
    */
-  refreshToken?: string;
+  refreshToken?: string | null;
 };
 
 export const oauthTokenRefreshableSchema: Schema<OAuthTokenRefreshable> = s.object<OAuthTokenRefreshable>({
   accessToken: s.string(),
   tokenType: s.string(),
-  expiresIn: s.optional(s.int()),
+  expiresIn: s.optional(s.intOrDigits()),
   scope: s.optional(s.string()),
-  refreshToken: s.optional(s.string()),
+  refreshToken: s.optionalNullable(s.string()),
   _keysMap: {
     accessToken: "access_token",
     tokenType: "token_type",
@@ -89,25 +91,30 @@ export const oauthTokenRefreshableSchema: Schema<OAuthTokenRefreshable> = s.obje
  *
  * `signal` is the one the call was given, or one that never aborts when it was given none.
  * Nothing times a strategy you supply; the built-in ones time their own token request.
+ *
+ * `scope` is the space-separated scopes to request: the `scope` on the credentials when one is
+ * set, otherwise the ones the operation or the flow declares, and `undefined` when there are none.
+ * `credentials` is the object the client was configured with, never a copy.
  */
 export type OAuth2TokenStrategy<TCredentials> = {
-  getToken(credentials: TCredentials, signal: AbortSignal): Promise<OAuthToken>;
+  getToken(credentials: TCredentials, signal: AbortSignal, scope?: string): Promise<OAuthToken>;
 };
 
 /**
- * A token strategy that can also refresh, used by the authorization-code grant.
+ * A token strategy that can also refresh, used by the authorization-code and password grants.
  *
  * @remarks
  * `tryRefreshToken` returns `null` rather than throwing when the refresh is rejected, which is what
  * makes "refresh failed, re-authorize" a normal path instead of an error path. Both methods get
- * `signal` as {@link OAuth2TokenStrategy} does.
+ * `signal`, `scope` and `credentials` as {@link OAuth2TokenStrategy} does.
  */
 export type OAuth2RefreshableTokenStrategy<TCredentials> = {
-  getToken(credentials: TCredentials, signal: AbortSignal): Promise<OAuthTokenRefreshable>;
+  getToken(credentials: TCredentials, signal: AbortSignal, scope?: string): Promise<OAuthTokenRefreshable>;
   tryRefreshToken(
     credentials: TCredentials,
     refreshToken: string,
     signal: AbortSignal,
+    scope?: string,
   ): Promise<OAuthTokenRefreshable | null>;
 };
 
@@ -127,7 +134,7 @@ export function oauth2ClientCredentialsStrategy(config: {
   placement?: OAuth2CredentialPlacement;
 }): OAuth2TokenStrategy<OAuth2ClientCredentials> {
   return {
-    getToken(credentials, signal: AbortSignal) {
+    getToken(credentials, signal: AbortSignal, scope) {
       const placed = placeCredentials(
         config.placement ?? "header",
         credentials.clientId,
@@ -139,7 +146,7 @@ export function oauth2ClientCredentialsStrategy(config: {
         placed.headers,
         [
           { name: "grant_type", value: "client_credentials", schema: s.string() },
-          ...scopeField(credentials.scope),
+          ...scopeField(scope),
           ...placed.fields,
         ],
         signal,
@@ -152,27 +159,30 @@ export function oauth2PasswordStrategy(config: {
   tokenUrl: UrlTemplate;
   rawClient: RawClient;
   placement?: OAuth2CredentialPlacement;
-}): OAuth2TokenStrategy<OAuth2PasswordCredentials> {
+}): OAuth2RefreshableTokenStrategy<OAuth2PasswordCredentials> {
+  const placementOf = (credentials: OAuth2PasswordCredentials): { headers: Param[]; fields: StyledParam[] } =>
+    placeCredentials(config.placement ?? "header", credentials.clientId, credentials.clientSecret);
+
   return {
-    getToken(credentials, signal: AbortSignal) {
-      const placed = placeCredentials(
-        config.placement ?? "header",
-        credentials.clientId,
-        credentials.clientSecret,
-      );
+    getToken(credentials, signal: AbortSignal, scope) {
+      const placed = placementOf(credentials);
       return requestToken(
         config,
-        oauthTokenSchema,
+        oauthTokenRefreshableSchema,
         placed.headers,
         [
           { name: "grant_type", value: "password", schema: s.string() },
           { name: "username", value: credentials.username, schema: s.string() },
           { name: "password", value: credentials.password, schema: s.string() },
-          ...scopeField(credentials.scope),
+          ...scopeField(scope),
           ...placed.fields,
         ],
         signal,
       );
+    },
+
+    tryRefreshToken(credentials, refreshToken, signal: AbortSignal) {
+      return requestRefresh(config, placementOf(credentials), refreshToken, signal);
     },
   };
 }
@@ -189,7 +199,7 @@ export function oauth2AuthorizationCodeStrategy(config: {
     placeCredentials(config.placement ?? "header", credentials.clientId, credentials.clientSecret);
 
   return {
-    async getToken(credentials, signal: AbortSignal) {
+    async getToken(credentials, signal: AbortSignal, scope) {
       const method = credentials.pkce === undefined ? PkceMethod.S256 : credentials.pkce;
       if (method === null && (credentials.clientSecret === undefined || credentials.clientSecret === "")) {
         throw new Error(
@@ -199,7 +209,7 @@ export function oauth2AuthorizationCodeStrategy(config: {
 
       const pkce = method === null ? undefined : await generatePkce(method);
       const authorizationUri = buildQueryUrl(new URL(templateUri(config.authorizationUrl)), [
-        authorizationFields(credentials, pkce),
+        authorizationFields(credentials, scope, pkce),
       ]);
       const code = await promptForCode(credentials, authorizationUri.href, signal);
       const placed = placementOf(credentials);
@@ -221,35 +231,8 @@ export function oauth2AuthorizationCodeStrategy(config: {
       );
     },
 
-    async tryRefreshToken(credentials, refreshToken, signal: AbortSignal) {
-      const placed = placementOf(credentials);
-      const outcome = await config.rawClient
-        .execute(
-          {
-            method: "POST",
-            urlTemplate: config.tokenUrl,
-            auth: noneAuth,
-            pathParams: [],
-            query: [],
-            headers: placed.headers,
-            body: {
-              kind: "formUrlEncoded",
-              value: [
-                { name: "grant_type", value: "refresh_token", schema: s.string() },
-                { name: "refresh_token", value: refreshToken, schema: s.string() },
-                ...placed.fields,
-              ],
-            },
-          },
-          {
-            success: { kind: "json", schema: oauthTokenRefreshableSchema },
-            errorFactory: ApiError,
-          },
-          { signal },
-        )
-        .asApiResult();
-
-      return outcome.ok ? outcome.value : null;
+    tryRefreshToken(credentials, refreshToken, signal: AbortSignal) {
+      return requestRefresh(config, placementOf(credentials), refreshToken, signal);
     },
   };
 }
@@ -313,6 +296,41 @@ async function requestToken<T>(
   );
 }
 
+async function requestRefresh(
+  config: { tokenUrl: UrlTemplate; rawClient: RawClient },
+  placed: { headers: Param[]; fields: StyledParam[] },
+  refreshToken: string,
+  signal: AbortSignal,
+): Promise<OAuthTokenRefreshable | null> {
+  const outcome = await config.rawClient
+    .execute(
+      {
+        method: "POST",
+        urlTemplate: config.tokenUrl,
+        auth: noneAuth,
+        pathParams: [],
+        query: [],
+        headers: placed.headers,
+        body: {
+          kind: "formUrlEncoded",
+          value: [
+            { name: "grant_type", value: "refresh_token", schema: s.string() },
+            { name: "refresh_token", value: refreshToken, schema: s.string() },
+            ...placed.fields,
+          ],
+        },
+      },
+      {
+        success: { kind: "json", schema: oauthTokenRefreshableSchema },
+        errorFactory: ApiError,
+      },
+      { signal },
+    )
+    .asApiResult();
+
+  return outcome.ok ? outcome.value : null;
+}
+
 async function promptForCode(
   credentials: OAuth2AuthorizationCodeCredentials,
   authorizationUrl: string,
@@ -328,13 +346,14 @@ async function promptForCode(
 
 function authorizationFields(
   credentials: OAuth2AuthorizationCodeCredentials,
+  scope: string | undefined,
   pkce: PkceValues | undefined,
 ): StyledParam[] {
   const fields: StyledParam[] = [
     { name: "response_type", value: "code", schema: s.string() },
     { name: "client_id", value: credentials.clientId, schema: s.string() },
     { name: "redirect_uri", value: credentials.redirectUri, schema: s.string() },
-    ...scopeField(credentials.scope),
+    ...scopeField(scope),
   ];
   if (credentials.state !== undefined && credentials.state !== "") {
     fields.push({ name: "state", value: credentials.state, schema: s.string() });

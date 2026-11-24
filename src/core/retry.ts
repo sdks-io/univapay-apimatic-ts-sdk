@@ -314,6 +314,7 @@ export type RespondedAttempt = {
   readonly kind: "response";
   readonly response: Response;
   readonly isStreaming: boolean;
+  readonly reauthenticate: boolean;
   discard(): void;
 };
 
@@ -337,14 +338,30 @@ export class RetryPolicy {
     logger: HttpLogger,
     send: (timeout: number) => Promise<RespondedAttempt | FaultedAttempt>,
   ): Promise<Response> {
-    for (let retriesMade = 0; ; retriesMade += 1) {
+    let retriesMade = 0;
+    let reauthenticated = false;
+    for (;;) {
       const attempt = await send(this.#options.timeout);
       if (!shouldRetry(this.#options, retriesMade, method, attempt)) {
         if (attempt.kind === "fault") {
           logger.logFailure(attempt.error, startedAt);
           throw attempt.error;
         }
-        return attempt.response;
+        if (!attempt.reauthenticate || reauthenticated) return attempt.response;
+
+        reauthenticated = true;
+        attempt.discard();
+        if (callerSignal.aborted) throw callerSignal.reason;
+        logger.logRetry(
+          {
+            attemptNumber: 1,
+            delay: 0,
+            reason: { kind: "status", status: attempt.response.status, headers: attempt.response.headers },
+          },
+          1,
+        );
+        retriesMade = 0;
+        continue;
       }
       let reason: RetryReason;
       switch (attempt.kind) {
@@ -366,6 +383,7 @@ export class RetryPolicy {
       this.#options.onRetry?.(retry);
       await sleep(retry.delay, callerSignal);
       if (callerSignal.aborted) throw callerSignal.reason;
+      retriesMade += 1;
     }
   }
 }

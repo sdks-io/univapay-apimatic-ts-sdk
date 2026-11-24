@@ -170,16 +170,20 @@ export class RawClient {
         const discard = (): void => {
           void Promise.resolve(response.body?.cancel()).catch(() => {});
         };
+        let reauthenticate = false;
         try {
           logger.logResponse(response);
-          if (response.status === 401) apiRequest.auth.invalidate?.();
+          reauthenticate =
+            response.status === 401 &&
+            apiRequest.auth.invalidate?.(authenticated.headers.get("authorization")) === true &&
+            !isStreaming;
           response = await hooks.afterResponse(response);
         } catch (err) {
           discard();
           throw err;
         }
         if (response.body !== null) sentRequests.set(response.body, requests);
-        return { kind: "response", response, isStreaming, discard };
+        return { kind: "response", response, isStreaming, reauthenticate, discard };
       },
     );
 

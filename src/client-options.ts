@@ -4,7 +4,12 @@ import type { CoreClientOptions } from "./core/client-options.js";
 export type ClientOptions = SdkClientOptions & CoreClientOptions;
 
 type SdkClientOptions = ServerOptions & {
-  /** リクエストに必須。形式：`Bearer {secret}.{jwt}` */
+  /**
+   * リクエストに必須。形式：`Bearer {secret}.{jwt}`
+   *
+   * @remarks
+   * Unset, it is read from `UNIVAPAY_PUBLIC_API_JWT_TOKEN`.
+   */
   readonly jwtToken?: SecretProvider | undefined;
 };
 

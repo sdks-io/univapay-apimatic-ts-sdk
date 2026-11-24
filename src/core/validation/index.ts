@@ -33,6 +33,7 @@ export {
   dateTime,
   rfc1123DateTime,
   unixSecondsDateTime,
+  intOrDigits,
   dateOnly,
   bytes,
   base64UrlBytes,

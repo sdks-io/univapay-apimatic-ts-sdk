@@ -40,7 +40,7 @@ export type SubscriptionCreateRequest = {
   installmentPlan?: SubscriptionInstallmentPlan;
   /** 回数限定定期課金（Univapay側での管理）用の設定。 */
   subscriptionPlan?: SubscriptionPlanSettings;
-  /** true の場合、初回課金はオーソリ（保留）のみとなります。 @default false */
+  /** true の場合、初回課金はオーソリ（保留）のみとなります。 */
   firstChargeAuthorizationOnly?: boolean;
   /** オーソリのみが true の場合の自動キャプチャまでの期間を、ISO-8601 期間形式で指定します。許容される日数: P1D から P6D。 */
   firstChargeCaptureAfter?: string;
@@ -66,7 +66,7 @@ const subscriptionCreateRequestProperties: s.Shape<SubscriptionCreateRequest> = 
   scheduleSettings: s.optional(s.lazy(() => subscriptionScheduleSettingsSchema)),
   installmentPlan: s.optional(s.lazy(() => subscriptionInstallmentPlanSchema)),
   subscriptionPlan: s.optional(s.lazy(() => subscriptionPlanSettingsSchema)),
-  firstChargeAuthorizationOnly: s.defaulted(s.boolean(), false),
+  firstChargeAuthorizationOnly: s.optional(s.boolean()),
   firstChargeCaptureAfter: s.optional(s.string()),
   metadata: s.optional(s.lazy(() => genericMetadataSchema)),
   threeDs: s.optional(s.lazy(() => chargeCreateRequestThreeDsInternalSchema)),
